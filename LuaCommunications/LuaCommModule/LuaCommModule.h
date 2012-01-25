@@ -1,0 +1,5 @@
+
+	int StartTimer ();
+	int StopTimer ();
+
+	
