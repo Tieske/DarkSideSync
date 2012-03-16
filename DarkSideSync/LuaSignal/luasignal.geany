@@ -1,0 +1,38 @@
+
+[indentation]
+indent_width=4
+indent_type=1
+indent_hard_tab_width=8
+detect_indent=false
+indent_mode=2
+
+[project]
+name=DarkSideSync
+base_path=/home/thijs/CodeLite/DarkSideSync/
+description=
+
+[long line marker]
+long_line_behaviour=1
+long_line_column=72
+
+[files]
+current_page=2
+FILE_NAME_0=57;C;0;16;1;1;0;/home/thijs/CodeLite/LuaSignal/src/luasignal.c;0;4
+FILE_NAME_1=114;Make;0;16;1;1;0;/home/thijs/CodeLite/LuaSignal/src/makefile;0;4
+FILE_NAME_2=769;Lua;0;16;1;1;0;/home/thijs/CodeLite/LuaSignal/test/testluasignal.lua;0;4
+FILE_NAME_3=263;C;0;16;1;1;0;/home/thijs/CodeLite/LuaSignal/src/darksidesync.h;0;4
+
+[build-menu]
+CFT_00_LB=_Compile
+CFT_00_CM=gcc -Wall -I/usr/include/lua5.1 -c "%f"
+CFT_00_WD=
+CFT_01_LB=_Build
+CFT_01_CM=gcc -Wall -I/usr/include/lua5.1 -o "%e" "%f"
+CFT_01_WD=
+filetypes=C;
+NF_00_LB=_Make
+NF_00_CM=make linux
+NF_00_WD=
+NF_01_LB=Make Custom _Target
+NF_01_CM=make 
+NF_01_WD=

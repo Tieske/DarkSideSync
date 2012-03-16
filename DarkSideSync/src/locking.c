@@ -1,8 +1,7 @@
 #ifndef dss_locking_h
 #define dss_locking_h
-#define WINDOWS
 
-#ifdef WINDOWS
+#ifdef WIN32
 #include <windows.h>
 //#include <stdio.h>
 static HANDLE SocketMutex;

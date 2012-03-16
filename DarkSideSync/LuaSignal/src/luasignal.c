@@ -4,10 +4,8 @@
 #include "darksidesync.h"
 
 
-// Name to anchor callback in the Lua register
-#define LUASIGNAL_CALLBACK_NAME "LuaSignalCallBack"
-
-DSS_deliver_t DeliverFunction = NULL;
+static volatile int CallbackReference = LUA_NOREF;
+static DSS_deliver_t DeliverFunction = NULL;
 
 /*
 ** ===============================================================
@@ -18,10 +16,22 @@ DSS_deliver_t DeliverFunction = NULL;
 	// Decodes data and puts it on the Lua stack
 	// pData is always NULL in this case, because we only handle
 	// SIGTERM signal, so push constant string
-	void signalDecoder (lua_State *L, void *pData)
+	// @returns; as with Lua function, return number of args on the stack to return
+	int signalDecoder (lua_State *L, void *pData)
 	{
-		lua_pushstring(L, "SIGTERM");
-		return;
+		lua_settop(L, 0);
+		if (CallbackReference == LUA_NOREF)
+		{
+			lua_pushnil(L);
+			lua_pushstring(L, "luasignal; No callback function set");
+			return 2;
+		}
+		else
+		{
+			lua_rawgeti(L, LUA_REGISTRYINDEX, CallbackReference);
+			lua_pushstring(L, "SIGTERM");
+			return 2;
+		}
 	}
 	
 	void signalHandler(int sigNum)
@@ -47,7 +57,7 @@ DSS_deliver_t DeliverFunction = NULL;
 		if (lua_gettop(L) >= 1 && lua_isfunction(L,1))
 		{
 			lua_settop(L,1);
-			lua_setfield(L, LUA_REGISTRYINDEX, LUASIGNAL_CALLBACK_NAME);
+			CallbackReference = luaL_ref(L, LUA_REGISTRYINDEX);
 		}
 		else
 		{
@@ -55,7 +65,7 @@ DSS_deliver_t DeliverFunction = NULL;
 			lua_settop(L,0);
 			lua_pushnil(L);
 			lua_pushstring(L, "Expected single argument of type function, to be used as callback");
-			return 1;
+			return 2;
 		}
 		// Collect the pointer to the deliver function from the register
 		lua_settop(L,0);
@@ -66,10 +76,11 @@ DSS_deliver_t DeliverFunction = NULL;
 			lua_settop(L,0);
 			lua_pushnil(L);
 			lua_pushstring(L, "No delivery possibility found, make sure to require 'darksidesync' first");
-			return 1;
+			return 2;
 		}
 		signal(SIGTERM, signalHandler);
 		lua_settop(L,0);
+		lua_pushinteger(L, 1);	// report success
 		return 1;
 	};
 
@@ -78,10 +89,12 @@ DSS_deliver_t DeliverFunction = NULL;
 	{
 		signal(SIGTERM, SIG_DFL);	// set to default handler
 		// Clear callback function from register
+		luaL_unref(L, LUA_REGISTRYINDEX, CallbackReference);
+		CallbackReference = LUA_NOREF;
+		// set results
 		lua_settop(L,0);
-		lua_pushnil(L);
-		lua_setfield(L, LUA_REGISTRYINDEX, LUASIGNAL_CALLBACK_NAME);
-		return 1;
+		lua_pushinteger(L, 1);	// report success
+		return 0;
 	};
 
 /*

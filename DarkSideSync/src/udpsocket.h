@@ -6,4 +6,4 @@ int  createSocket (int port);
 void destroySocket ();
 int  sendPacket (char* pData);
 
-#endif
+#endif  /* dss_udpsocket_h */

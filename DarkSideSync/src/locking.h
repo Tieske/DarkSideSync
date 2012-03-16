@@ -7,4 +7,4 @@ void unlockSocket ();
 void lockQueue ();
 void unlockQueue ();
 
-#endif
+#endif  /* dss_locking_h */

@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <lua.h>
 #include <lauxlib.h>
 #include "udpsocket.h"
 #include "locking.h"
@@ -124,8 +123,10 @@ static int volatile QueueCount = 0;					// Count of items in queue
 	// the memory allocated for pData will be released by
 	// DSS after it has called the pDecode function (from the
 	// Lua API poll() function).
+	// @returns; 0 on error sending UDP packet, 1 otherwise
 	int DSS_deliver (DSS_decoder_t pDecode, void* pData)
 	{
+		int result = 1;	// report success by default
 		int cnt = queuePush(pDecode, pData);	// Push it on the queue
 		char buff[6];
 		sprintf(buff, " %d", cnt);	// convert to string
@@ -134,11 +135,18 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		lockSocket();
 		if (DSS_UDPPort != 0)
 		{
-			sendPacket(buff);
+			if (sendPacket(buff) == 0)
+			{
+				// sending failed, retry
+				destroySocket(); 
+				createSocket(DSS_UDPPort);
+				if (sendPacket(buff) == 0)
+					result = 0;		// report failure
+			};
 		}
 		unlockSocket();
 		
-		return 1;	// report success
+		return result;	
 	};
 
 /*
@@ -163,7 +171,7 @@ static int volatile QueueCount = 0;					// Count of items in queue
 				lua_settop(L,0);
 				lua_pushnil(L);
 				lua_pushstring(L, "Invalid port number, use an integer value from 0 to 65535");
-				return 1;
+				return 2;
 			}
 			setUDPPort(newPort);
 		}
@@ -173,7 +181,7 @@ static int volatile QueueCount = 0;					// Count of items in queue
 			lua_settop(L,0);
 			lua_pushnil(L);
 			lua_pushstring(L, "Invalid port number, use an integer value from 0 to 65535");
-			return 1;
+			return 2;
 		}
 
 		// Store pointer to my 'deliver' function in the Lua registry
@@ -201,16 +209,17 @@ static int volatile QueueCount = 0;					// Count of items in queue
 	};
 
 	// Lua function to get the next item from the queue or
-	// nil of none available
+	// nil if none available
 	int L_poll(lua_State *L)
 	{
+		int cnt = 0;
 		lua_settop(L,0);		// drop any argument provided
 
 		queueItem qi = queuePop();
 		if (qi.pDecode != NULL)
 		{
 			// Call the decoder function with the data provided
-			qi.pDecode(L, qi.pData);
+			cnt = qi.pDecode(L, qi.pData);
 			// Release allocated data memory
 			free(qi.pData);
 			qi.pData = NULL;
@@ -219,8 +228,9 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		{
 			// No data in queue, return nil
 			lua_pushnil(L);
+			cnt = 1;
 		}
-		return 1;	// report success
+		return cnt;	
 	};
 
 /*
