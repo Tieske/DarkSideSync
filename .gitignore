@@ -5,3 +5,5 @@
 /Debug
 *.suo
 *.ncb
+/darksidesync/Debug
+/luaexit/Debug
