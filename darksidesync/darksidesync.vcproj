@@ -184,6 +184,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\dss_test.lua"
+				>
+			</File>
+			<File
 				RelativePath=".\locking.c"
 				>
 			</File>
