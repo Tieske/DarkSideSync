@@ -62,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="lua51.lib"
+				AdditionalDependencies="lua51.lib wsock32.lib"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;C:\Program Files\Lua\5.1\lib&quot;"
 				GenerateDebugInformation="true"
@@ -217,6 +217,10 @@
 			>
 			<File
 				RelativePath=".\install.bat"
+				>
+			</File>
+			<File
+				RelativePath="..\readme.txt"
 				>
 			</File>
 		</Filter>

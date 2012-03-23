@@ -8,6 +8,10 @@
 static volatile int CallbackReference = LUA_NOREF;
 static DSS_deliver_t DeliverFunction = NULL;
 
+// TODO: for windows implement the following;
+// SetConsoleCtrlHandler http://msdn.microsoft.com/en-us/library/windows/desktop/ms686016(v=vs.85).aspx
+// RegisterServiceCtrlHandler http://msdn.microsoft.com/en-us/library/windows/desktop/ms685054(v=vs.85).aspx
+
 /*
 ** ===============================================================
 ** Signal handling code
@@ -16,7 +20,7 @@ static DSS_deliver_t DeliverFunction = NULL;
 
 	// Decodes data and puts it on the Lua stack
 	// pData is always NULL in this case, because we only handle
-	// SIGTERM signal, so push constant string
+	// SIGTERM & SIGINT signal, so push constant string
 	// @returns; as with Lua function, return number of args on the stack to return
 	int signalDecoder (lua_State *L, void *pData)
 	{
@@ -30,19 +34,19 @@ static DSS_deliver_t DeliverFunction = NULL;
 		else
 		{
 			lua_rawgeti(L, LUA_REGISTRYINDEX, CallbackReference);
-			lua_pushstring(L, "SIGTERM");
+			lua_pushstring(L, "SIGTERM");  // TODO: update this, its more than SIGTERM
 			return 2;
 		}
 	}
 	
 	void signalHandler(int sigNum)
 	{
-		signal(SIGTERM, SIG_IGN);	// Temporarily ignore signals
+		signal(sigNum, SIG_IGN);	// Temporarily ignore signals
 
 		// deliver signal to DarkSideSync, no data included
 		DeliverFunction (signalDecoder, NULL); // TODO: this is probably not safe in a signal handler!!!!!
 		
-		signal(SIGTERM, signalHandler); // Set handler again
+		signal(sigNum, signalHandler); // Set handler again
 	}
 
 /*
@@ -80,6 +84,7 @@ static DSS_deliver_t DeliverFunction = NULL;
 			return 2;
 		}
 		signal(SIGTERM, signalHandler);
+		signal(SIGINT, signalHandler);
 		lua_settop(L,0);
 		lua_pushinteger(L, 1);	// report success
 		return 1;

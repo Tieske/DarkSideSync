@@ -8,21 +8,22 @@
 #define DSS_TARGET "localhost"
 
 #ifdef WIN32
-//#include <windows.h>
-//#include <stdio.h>
-//static HANDLE SocketMutex;
-//static HANDLE QueueMutex;
+
+#include <winsock.h>
+static volatile SOCKET udpsock = INVALID_SOCKET;	
+static WSADATA w;
+static struct hostent *hp;
 
 #else  // Unix
 
 #include <netdb.h>
 #include <unistd.h>
 #include <string.h>
-static volatile struct sockaddr_in receiver_addr;
-static volatile int udpsock = -1;
+static volatile int udpsock = -1;	// TODO: symbol instead of constant??
 
 #endif
 
+static volatile struct sockaddr_in receiver_addr;
 
 
 
@@ -37,20 +38,80 @@ static volatile int udpsock = -1;
 
 	void destroySocket ()
 	{
+		if (udpsock != INVALID_SOCKET)
+		{
+			closesocket(udpsock);
+			WSACleanup();
+			udpsock = INVALID_SOCKET;
+		}
 	}
 
 	// Creates and initializes the socket
 	// @returns; 0 on failure, 1 on success
 	int createSocket (int port)
 	{
-		return 0;	// TODO: implement win version
+		if (port != 0)
+		{
+			/* Open windows connection */
+			if (WSAStartup(0x0101, &w) != 0) 
+			{
+				return 0;	//failed to initialize
+			}
+
+			/* Open a datagram socket */
+			udpsock = socket(AF_INET, SOCK_DGRAM, 0);
+			if (udpsock == INVALID_SOCKET)
+			{
+				WSACleanup();
+				return 0;	//failed to create socket
+			}
+
+			/* Clear out server struct */
+			memset((void *)&receiver_addr, '\0', sizeof(struct sockaddr_in));
+
+			/* Set family and port */
+			receiver_addr.sin_family = AF_INET;
+			receiver_addr.sin_port = htons(port);
+
+			/* Get localhost address */
+			hp = gethostbyname(DSS_TARGET);
+
+			/* Check for NULL pointer */
+			if (hp == NULL)
+			{
+				closesocket(udpsock);
+				WSACleanup();
+				udpsock = INVALID_SOCKET;
+				return 0;		// failed to resolve localhost name
+			}
+
+			/* Set target address */
+			receiver_addr.sin_addr.S_un.S_un_b.s_b1 = hp->h_addr_list[0][0];
+			receiver_addr.sin_addr.S_un.S_un_b.s_b2 = hp->h_addr_list[0][1];
+			receiver_addr.sin_addr.S_un.S_un_b.s_b3 = hp->h_addr_list[0][2];
+			receiver_addr.sin_addr.S_un.S_un_b.s_b4 = hp->h_addr_list[0][3];
+		}
+		return 1;	
 	}
 
 	// Sends a UDP packet
 	// @returns; 0 on failure, 1 on success
 	int sendPacket (char *pData)
 	{
-		return 0;	// TODO: implement win version
+		if (udpsock > 0)
+		{
+			/* Tranmsit data to get time */
+			//server_length = sizeof(struct sockaddr_in);
+			if (sendto(udpsock, pData, (int)strlen(pData) + 1, 0, (struct sockaddr *)&receiver_addr, sizeof(struct sockaddr_in)) == -1)
+			{
+				closesocket(udpsock);
+				WSACleanup();
+				udpsock = INVALID_SOCKET;
+				return 0;	// report failure to send
+			}
+			return 1;	// report success
+		}
+		return 0;	// report failure (there was no socket)
 	}
 
 #else   // Unix
