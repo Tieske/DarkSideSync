@@ -1,4 +1,4 @@
-#ifndef luaexit_h	// TODO: rename definition to a unique name
+#ifndef luaexit_h
 #define luaexit_h
 
 

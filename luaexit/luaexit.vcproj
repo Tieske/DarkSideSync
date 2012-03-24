@@ -180,7 +180,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\testluaexit.lua"
+				RelativePath=".\luaexit_test.lua"
 				>
 			</File>
 		</Filter>
