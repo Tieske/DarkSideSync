@@ -12,11 +12,11 @@ Whenever a background thread has some data, it will be queued and a UDP packet w
 
 Negative
 ========
-UDP packets require quite some overhead. So if utmost performance is required, this might not be the best solution
+UDP packets require quite some overhead. So if utmost performance is required, this might not be the best solution if you don't want to revert to polling
 
 Positive
 ========
-It is very generic. Its not bound to luasockets, any other network library supporting UDP will do. Cross platform, it supports Unix and Windows.
+It is very generic. Its not bound to luasockets, any other network library supporting UDP will do. Cross platform, it supports Unix and Windows. And if all else fails it supports just polling.
 
 Linking
 =======
