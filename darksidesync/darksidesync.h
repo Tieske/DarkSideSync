@@ -22,15 +22,16 @@
 // safe to access.
 // @returns; similar to c function for Lua it should return the number
 // of arguments it decoded on to the Lua stack.
-typedef int (*DSS_decoder_t) (lua_State *L, void* pData);
+typedef void (*DSS_decoder_t) (lua_State *L, void* pData);
 
 // The backgroundworker can call this function (see
 // DSS_REGISTRY_NAME for collecting it) to deliver data
 // to the Lua state.
-// @arg1: pointer to a decoder function (see DSS_decoder_t below)
-// @arg2; pointer to some piece of data. NOTE: once delivered
+// @arg1; ID of utility delivering (see register() function)
+// @arg2: pointer to a decoder function (see DSS_decoder_t below)
+// @arg3; pointer to some piece of data. NOTE: once delivered
 // DSS will take ownership of the memory allocated for this item.
 // @returns; 0 on error sending UDP packet, 1 otherwise
-typedef int (*DSS_deliver_t) (DSS_decoder_t pDecode, void* pData);
+typedef int (*DSS_deliver_t) (long utilid, DSS_decoder_t pDecode, void* pData);
 
 #endif /* darksidesync_h */

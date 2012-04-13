@@ -4,20 +4,36 @@
 #include "locking.h"
 #include "darksidesync.h"
 
+// Define symbol for last queue item, independent of utilid
+#define DSS_LASTITEM -1
+
 // holds port for notification, or 0 for no notification
 static int volatile DSS_UDPPort;	// use lock before modifying !!
 
 // Structure for storing information in the queue
 typedef struct qItem *pqueueItem;
 typedef struct qItem {
+		long utilid;				// unique ID to utility
 		DSS_decoder_t pDecode;		// Pointer to the decode function
 		void* pData;				// Data to be decoded
 		pqueueItem pNext;			// Next item in queue
+		pqueueItem pPrevious;		// Previous item in queue
 	} queueItem;
+
+// structure for registering utilities
+typedef struct utilReg *putilRecord;
+typedef struct utilReg {
+		long utilid					// unique ID to utility
+		DSS_cancel_t pCancel;		// pointer to cancel function
+		putilRecord pNext;			// Next item in list
+		putilRecord pPrevious;		// Previous item in list
+	} utilRecord
 
 static pqueueItem volatile QueueStart = NULL;		// Holds first element in the queue
 static pqueueItem volatile QueueEnd = NULL;			// Holds the last item in the queue
 static int volatile QueueCount = 0;					// Count of items in queue
+static putilRecord volatile UtilStart = NULL;		// Holds first utility in the list
+static int volatile utilitycount = 0;				// Counter for registering utilities with unique IDs
 
 #ifdef WIN32
 	#define DSS_API __declspec(dllexport)
@@ -25,6 +41,23 @@ static int volatile QueueCount = 0;					// Count of items in queue
 	#define DSS_API extern
 #endif
 
+/*
+** ===============================================================
+** Utility registration functions
+** ===============================================================
+*/
+	// Lookup a utility record for the given utilid
+	// NOTE: will not lock the register, must be done before calling!!
+	// Returns: utility record for the utilid, or NULL if not found
+	putilRecord getUtility(utilid)
+	{
+		putilRecord result = UtilStart;	//start at first item
+		while (result != NULL && (*result).utilid != utilid)
+		{
+			result = (*result).pNext;
+		}
+		return result;
+	}
 
 /*
 ** ===============================================================
@@ -33,7 +66,7 @@ static int volatile QueueCount = 0;					// Count of items in queue
 */
 	// Push item in the queue
 	// Returns number of items in queue, or -1 if it failed
-	int queuePush (DSS_decoder_t pDecode, void* pData)
+	int queuePush (int utilid, DSS_decoder_t pDecode, void* pData)
 	{
 		pqueueItem pqi = NULL;
 		int cnt;
@@ -41,9 +74,11 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		if (NULL == (pqi = malloc(sizeof(queueItem))))
 			return (-1);	// exit, memory alloc failed
 
+		(*pqi).utilid = utilid;
 		(*pqi).pDecode = pDecode;
 		(*pqi).pData = pData;
 		(*pqi).pNext = NULL;
+		(*pqi).pPrevious = NULL;
 
 		lockQueue();
 		if (QueueStart == NULL)
@@ -56,6 +91,7 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		{
 			// append to queue
 			(*QueueEnd).pNext = pqi;
+			(*pqi).pPrevious = QueueEnd;
 			QueueEnd = pqi;
 		}
 		QueueCount += 1;
@@ -67,25 +103,54 @@ static int volatile QueueCount = 0;					// Count of items in queue
 
 	// Pop item from the queue
 	// Returns queueItem filled, or all NULLs if none available
-	queueItem queuePop ()
+	// utilid is id of utility for which to return, or DSS_LASTITEM to
+	// just return the last item, independent of a utilid
+	queueItem queuePop (long utilid)
 	{
-		queueItem qi;
-		qi.pDecode = NULL;
-		qi.pData = NULL;
-		qi.pNext = NULL;
+		queueItem result;
+		result.utilid = DSS_LASTITEM;
+		result.pData = NULL;
+		result.pDecode = NULL;
+		result.pNext = NULL;
+		result.pPrevious = NULL;
+
+		pqueueItem qi;
 		
 		lockQueue();
 		if (QueueStart != NULL)
 		{
-			qi = *QueueStart;
-			free(QueueStart);		// release queueItem memory
-			QueueStart = qi.pNext;
-			if (QueueStart == NULL) QueueEnd = NULL; //last item collected
-			qi.pNext = NULL;
+
+			if (utilid == DSS_LASTITEM)
+			{
+				// just grab the last one from the queue
+				qi = QueueStart;
+			}
+			else
+			{
+				// traverse backwards to find the last one with a corresponding utilid
+				qi = QueueEnd;
+				while (qi != NULL && (*qi).utilid != utilid)
+				{
+					qi = (*qi).pPrevious;
+				}
+			}
+
+			if (qi != NULL) 
+			{
+				result = (*qi);
+				// dismiss item from linked list
+				if (result.pPrevious != NULL) (*result.pPrevious).pNext = result.pNext;
+				if (result.pNext != NULL) (*result.pNext).pPrevious = result.pPrevious;
+				free(qi);		// release queueItem memory
+				// cleanup results
+				result.pNext = NULL;
+				result.pPrevious = NULL;
+				QueueCount -= 1;
+			}
 		}
 		unlockQueue();
 
-		return qi;
+		return result;
 	}
 
 /*
@@ -130,10 +195,15 @@ static int volatile QueueCount = 0;					// Count of items in queue
 	// DSS after it has called the pDecode function (from the
 	// Lua API poll() function).
 	// @returns; 0 on error sending UDP packet, 1 otherwise
-	int DSS_deliver (DSS_decoder_t pDecode, void* pData)
+	int DSS_deliver (long utilid, DSS_decoder_t pDecode, void* pData)
 	{
+		if (getUtility(utilid) == NULL)
+		{
+			// TODO: error, invalid utilid
+		}
+
 		int result = 1;	// report success by default
-		int cnt = queuePush(pDecode, pData);	// Push it on the queue
+		int cnt = queuePush(utilid, pDecode, pData);	// Push it on the queue
 		char buff[6];
 		sprintf(buff, " %d", cnt);	// convert to string
 		
@@ -155,6 +225,91 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		return result;	
 	};
 
+	// register a library to use DSS 
+	// @arg1; pointer to the cancel method of the utility, will be called
+	// when DSS decides to terminate the collaboration with the utility
+	// Returns: unique ID for the utility that must be used for all subsequent
+	// calls to DSS
+	long DSS_register(DSS_cancel_t pCancel)
+	{
+		if (pCancel == NULL)
+		{
+			// TODO: error here
+		}
+
+		long newid;
+		putilRecord util;
+		putilRecord last;
+
+		LockUtilList();
+		// find a unique ID that is > 0
+		while (utilitycount < 1 || getUtility(utilitycount) != NULL)
+		{
+			utilitycount += 1;
+			if (utilitycount < 1) utilitycount = 1;
+		}
+		newid = utilitycount;
+		utilitycount += 1;
+
+		// create and fill utility record
+		util = malloc(sizeof(utilrecord)); //TODO: check memory error
+		(*util).pCancel = pCancel;
+		(*util).utilid = newid;
+		(*util).pNext = NULL;
+		(*util).pPrevious = NULL;
+
+		// Add record to end of list
+		last = UtilStart;
+		while (last != NULL || (*last).pNext != NULL) last = (*last).pNext;
+		if (last == NULL)
+		{
+			// first item
+			UtilStart = util;
+		}
+		else
+		{
+			// append to list
+			(*last).pNext = util;
+			(*util).pPrevious = last;
+		}
+
+		UnlockUtilList();
+		return newid
+	}
+
+
+	// unregisters a previously registered utility
+	// Error if it doesn't exits
+	void DSS_unregister(long utilid)
+	{
+		putilRecord util = NULL;
+		LockUtilList();
+		util = getUtility(utilid);
+		if (util == NULL)
+		{
+			UnlockUtilList();
+			// TODO: throw error, doesn't exist
+		}
+		else
+		{
+			// remove it from the list
+			if (UtilStart == util) UtilStart == (*util).pNext;
+			if ((*util).pNext != NULL) (*(*util).pNext).pPrevious = (*util).pPrevious;
+			if ((*util).pPrevious != NULL) (*(*util).pPrevious).pNext = (*util).pNext;
+			free(util)
+			// Unlock, we're done with the util list
+			UnlockUtilList();
+			// cancel all items still in the queue
+			queueItem qi;
+			qi = queuePop(utilid);
+			while (qi.pDecode != NULL)
+			{
+				qi.pDecode(NULL, qi.pData);	// no LuaState, use NULL to indicate cancelling
+				qi = queuePop(utilid);		// get next one
+			}
+		}
+	}
+
 /*
 ** ===============================================================
 ** Lua API
@@ -171,12 +326,12 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		{
 			newPort = luaL_checkint(L,1); // returns 0 if it fails
 
-			if (newPort < 0 || newPort > 65535)
+			if (newPort < 1 || newPort > 65535)
 			{
 				// Port number outside valid range
 				lua_settop(L,0);
 				lua_pushnil(L);
-				lua_pushstring(L, "Invalid port number, use an integer value from 0 to 65535");
+				lua_pushstring(L, "Invalid port number, use an integer value from 1 to 65535");
 				return 2;
 			}
 			setUDPPort(newPort);
@@ -186,7 +341,7 @@ static int volatile QueueCount = 0;					// Count of items in queue
 			// There are no parameters, or the first isn't a number
 			lua_settop(L,0);
 			lua_pushnil(L);
-			lua_pushstring(L, "Invalid port number, use an integer value from 0 to 65535");
+			lua_pushstring(L, "Invalid port number, use an integer value from 1 to 65535");
 			return 2;
 		}
 
@@ -203,8 +358,14 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		return 1;
 	};
 
+	// Lua function to stop the library 
+	int L_stop(lua_State *L)
+	{
+		//TODO: implement
+	}
+
 	// Lua function to get the UDP port number in use
-	// @luareturns: UDP portnumber 0-65535 in use
+	// @luareturns: UDP portnumber 1-65535 in use, or 0 if no port
 	int L_getport (lua_State *L)
 	{
 		lua_settop(L,0);
@@ -225,18 +386,19 @@ static int volatile QueueCount = 0;					// Count of items in queue
 		if (qi.pDecode != NULL)
 		{
 			// Call the decoder function with the data provided
-			cnt = qi.pDecode(L, qi.pData);
-			// Release allocated data memory
-			free(qi.pData);
+			qi.pDecode(L, qi.pData);
 			qi.pData = NULL;
+			lua_settop(L,0);		// drop any arguments returned
+			lockQueue();
+			lua_pushint(QueueCount);	// return current queue size
+			unlockQueue();
 		}
 		else
 		{
 			// No data in queue, return nil
 			lua_pushnil(L);
-			cnt = 1;
 		}
-		return cnt;	
+		return 1;	// always 1 return argument
 	};
 
 /*
@@ -246,6 +408,7 @@ static int volatile QueueCount = 0;					// Count of items in queue
 */
 	static const struct luaL_Reg DarkSideSync[] = {
 		{"start",L_start},
+		{"stop",L_stop},
 		{"poll",L_poll},
 		{"getport",L_getport},
 		{NULL,NULL}

@@ -7,6 +7,7 @@
 //#include "darksidesync.h"
 #define DSS_TARGET "localhost"
 
+
 #ifdef WIN32
 
 #include <winsock.h>
@@ -19,7 +20,7 @@ static struct hostent *hp;
 #include <netdb.h>
 #include <unistd.h>
 #include <string.h>
-static volatile int udpsock = -1;	// TODO: symbol instead of constant??
+static volatile int udpsock = INVALID_SOCKET;	// TODO: symbol instead of constant??
 
 #endif
 
@@ -119,10 +120,10 @@ static volatile struct sockaddr_in receiver_addr;
 	void destroySocket ()
 	{
 		// Close and destroy socket
-		if (udpsock > 0)
+		if (udpsock != INVALID_SOCKET)
 		{
 			close(udpsock);
-			udpsock = -1;
+			udpsock = INVALID_SOCKET;
 		}
 	}
 
@@ -137,7 +138,10 @@ static volatile struct sockaddr_in receiver_addr;
 		{
 			// Create and return UDP socket for port number
 			udpsock = socket(AF_INET, SOCK_DGRAM, 0);
-			if (udpsock < 0) return 0;	// report failure
+			if (udpsock < 0) {
+				udpsock = INVALID_SOCKET;
+				return 0;	// report failure
+			}
 
 			// lookup 'localhost' 
 			receiver_addr.sin_family = AF_INET;
@@ -163,7 +167,7 @@ static volatile struct sockaddr_in receiver_addr;
 	// @returns; 0 on failure, 1 on success
 	int sendPacket (char *pData)
 	{
-		if (udpsock > 0)
+		if (udpsock != INVALID_SOCKET)
 		{
 			int n;
 			// Send string as UDP packet
