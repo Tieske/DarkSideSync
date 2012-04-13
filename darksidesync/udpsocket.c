@@ -20,7 +20,7 @@ static struct hostent *hp;
 #include <netdb.h>
 #include <unistd.h>
 #include <string.h>
-static volatile int udpsock = INVALID_SOCKET;	// TODO: symbol instead of constant??
+static volatile int udpsock = INVALID_SOCKET;	
 
 #endif
 

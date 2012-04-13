@@ -107,5 +107,17 @@ static pthread_mutex_t QueueMutex = PTHREAD_MUTEX_INITIALIZER;	//Queue protectio
 	}
 #endif		
 
+	// Lock the utilList, reuse queueLock
+	void lockUtilList ()
+	{
+		lockQueue();
+	}
+	
+	// Unlock the utilList, reuse queueLock
+	void unlockUtilList ()
+	{
+		unlockQueue();
+	}
+
 
 #endif
