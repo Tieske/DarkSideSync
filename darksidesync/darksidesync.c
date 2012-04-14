@@ -468,7 +468,7 @@ DSS_API	int luaopen_darksidesync(lua_State *L){
 			// Mutexes could not be created
 			luaL_error(L, "Mutexes could not be created"); // call never returns
 		}
-		
+//TODO: add a garbage collector that stops the queue and clients		
 		lockSocket();
 		DSS_UDPPort = 0;
 		unlockSocket();

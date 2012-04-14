@@ -41,7 +41,10 @@ typedef void (*DSS_cancel_t) ();
 // @arg2: pointer to a decoder function (see DSS_decoder_t above)
 // @arg3; pointer to some piece of data.
 // @returns; DSS_SUCCESS, DSS_ERR_INVALID_UTILID, DSS_ERR_UDP_SEND_FAILED, DSS_ERR_OUT_OF_MEMORY
-// NOTE: edgecase due to synchronization, when delivering while DSS is stopping
+// NOTE1: DSS_ERR_UDP_SEND_FAILED means that the data was still delivered to the
+// queue, only the notification failed, for the other errors, it will not be
+// queued.
+// NOTE2: edgecase due to synchronization, when delivering while DSS is stopping
 // DSS_ERR_INVALID_UTILID may be returned, even if cancel() was not called yet,
 // so this should always be checked
 typedef int (*DSS_deliver_t) (int utilid, DSS_decoder_t pDecode, void* pData);
@@ -67,4 +70,5 @@ typedef int (*DSS_unregister_t) (int utilid);
 #define DSS_ERR_NOT_STARTED -4			// DSS hasn't been started, or was already stopping/stopped
 #define DSS_ERR_NO_CANCEL_PROVIDED -5	// When registering the cancel method is required
 #define DSS_ERR_OUT_OF_MEMORY -6		// memory allocation failed
+
 #endif /* darksidesync_h */
