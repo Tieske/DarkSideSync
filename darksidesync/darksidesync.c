@@ -6,6 +6,7 @@
 
 // Define symbol for last queue item, independent of utilid
 #define DSS_LASTITEM -1
+
 // Symbols for library status 
 #define DSS_STATUS_STARTED -1
 #define DSS_STATUS_STOPPING -2
@@ -18,7 +19,7 @@ static int volatile DSS_UDPPort;	// use lock before modifying !!
 typedef struct qItem *pqueueItem;
 typedef struct qItem {
 		long utilid;				// unique ID to utility
-		DSS_decoder_t pDecode;		// Pointer to the decode function
+		DSS_decoder_1v0_t pDecode;	// Pointer to the decode function
 		void* pData;				// Data to be decoded
 		pqueueItem pNext;			// Next item in queue
 		pqueueItem pPrevious;		// Previous item in queue
@@ -28,7 +29,7 @@ typedef struct qItem {
 typedef struct utilReg *putilRecord;
 typedef struct utilReg {
 		int utilid;				// unique ID to utility
-		DSS_cancel_t pCancel;		// pointer to cancel function
+		DSS_cancel_1v0_t pCancel;	// pointer to cancel function
 		putilRecord pNext;			// Next item in list
 		putilRecord pPrevious;		// Previous item in list
 	} utilRecord;
@@ -39,6 +40,7 @@ static int volatile QueueCount = 0;					// Count of items in queue
 static putilRecord volatile UtilStart = NULL;		// Holds first utility in the list
 static int volatile utilitycount = 0;				// Counter for registering utilities with unique IDs
 static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locked by lockUtilList()
+static DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
 
 // TODO: add a status; running, stopping, stopped, including errors when attempting to register/deliver while stopping/stopped
 #ifdef WIN32
@@ -72,7 +74,7 @@ static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locke
 */
 	// Push item in the queue
 	// Returns number of items in queue, or DSS_ERR_OUT_OF_MEMORY if it failed
-	int queuePush (int utilid, DSS_decoder_t pDecode, void* pData)
+	int queuePush (int utilid, DSS_decoder_1v0_t pDecode, void* pData)
 	{
 		pqueueItem pqi = NULL;
 		int cnt;
@@ -200,12 +202,21 @@ static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locke
 	// the memory allocated for pData will be released by
 	// DSS after it has called the pDecode function (from the
 	// Lua API poll() function).
-	// @returns; DSS_SUCCESS, DSS_ERR_INVALID_UTILID, DSS_ERR_UDP_SEND_FAILED, DSS_ERR_OUT_OF_MEMORY
-	int DSS_deliver (int utilid, DSS_decoder_t pDecode, void* pData)
+	// @returns; DSS_SUCCESS, DSS_ERR_INVALID_UTILID, DSS_ERR_UDP_SEND_FAILED, 
+	// DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED
+	int DSS_deliver_1v0 (int utilid, DSS_decoder_1v0_t pDecode, void* pData)
 	{
 		int result = DSS_SUCCESS;	// report success by default
 		int cnt;
 		char buff[6];
+
+		lockUtilList();
+		if (DSS_status != DSS_STATUS_STARTED)
+		{
+			unlockUtilList();
+			return DSS_ERR_NOT_STARTED;
+		}
+		unlockUtilList();
 
 		if (getUtility(utilid) == NULL)
 		{
@@ -240,16 +251,19 @@ static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locke
 	// when DSS decides to terminate the collaboration with the utility
 	// Returns: unique ID for the utility that must be used for all subsequent
 	// calls to DSS (1 or greater)
-	int DSS_register(DSS_cancel_t pCancel)
+	int DSS_register_1v0(DSS_cancel_1v0_t pCancel)
 	{
 		int newid;
 		putilRecord util;
 		putilRecord last;
 
+		lockUtilList();
 		if (DSS_status != DSS_STATUS_STARTED)
 		{
+			unlockUtilList();
 			return DSS_ERR_NOT_STARTED;
 		}
+		unlockUtilList();
 
 		if (pCancel == NULL)
 		{
@@ -297,7 +311,7 @@ static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locke
 	// unregisters a previously registered utility
 	// Error if it doesn't exits
 	// returns DSS_SUCCESS, DSS_ERR_INVALID_UTILID
-	int DSS_unregister(int utilid)
+	int DSS_unregister_1v0(int utilid)
 	{
 		queueItem qi;
 		putilRecord util = NULL;
@@ -333,51 +347,27 @@ static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locke
 ** Lua API
 ** ===============================================================
 */
-	// Lua function to start the library and initially set the UDP port
-	// @luaparam; nil, or UDP port number to use
+	// Lua function to set the UDP port
+	// @luaparam; UDP port number to use
 	// @luareturns; 1 if successfull, or nil + error msg
-	int L_start(lua_State *L)
+	int L_setport(lua_State *L)
 	{
-		int newPort;
-
-		if (lua_gettop(L) >= 1 && lua_isnumber(L,1))
+		if (lua_gettop(L) >= 1 && luaL_checkint(L,1) >= 0 && luaL_checkint(L,1) <= 65535)
 		{
-			newPort = luaL_checkint(L,1); // returns 0 if it fails
-
-			if (newPort < 1 || newPort > 65535)
-			{
-				// Port number outside valid range
-				lua_settop(L,0);
-				lua_pushnil(L);
-				lua_pushstring(L, "Invalid port number, use an integer value from 1 to 65535");
-				return 2;
-			}
-			setUDPPort(newPort);
+			setUDPPort(luaL_checkint(L,1));
+			// report success
+			lua_settop(L,0);
+			lua_pushinteger(L, 1);
+			return 1;
 		}
 		else
 		{
 			// There are no parameters, or the first isn't a number
 			lua_settop(L,0);
 			lua_pushnil(L);
-			lua_pushstring(L, "Invalid port number, use an integer value from 1 to 65535");
+			lua_pushstring(L, "Invalid UDP port number, use an integer value from 1 to 65535, or 0 to disable UDP notification");
 			return 2;
 		}
-
-		// Store pointer to my 'deliver' function in the Lua registry
-		// for backgroundworkers to collect there
-		// TODO: change to table, with sub tables. Versions as keys, 
-		// and table content being version specific, also add the (un)register functions
-		lua_pushlightuserdata(L,&DSS_deliver);
-		lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
-
-		lockUtilList();
-		DSS_status = DSS_STATUS_STARTED;
-		unlockUtilList();
-
-		// report success
-		lua_settop(L,0);
-		lua_pushinteger(L, 1);
-		return 1;
 	};
 
 	// Lua function to stop the library 
@@ -386,9 +376,7 @@ static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locke
 	{
 		putilRecord listend = NULL;
 
-		// Clear pointer to my 'deliver' function in the Lua registry
-		// TODO: change to table, with sub tables. Versions as keys
-		// and table content being version specific
+		// Clear pointer to DSS api table in the Lua registry
 		lua_pushnil(L);
 		lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
 
@@ -454,24 +442,49 @@ static int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locke
 ** ===============================================================
 */
 	static const struct luaL_Reg DarkSideSync[] = {
-		{"start",L_start},
 		{"stop",L_stop},
 		{"poll",L_poll},
 		{"getport",L_getport},
+		{"setport",L_setport},
 		{NULL,NULL}
 	};
 
 DSS_API	int luaopen_darksidesync(lua_State *L){
+//TODO: add a garbage collector that stops the queue and clients		
 
 		if (initLocks() != 0)
 		{
 			// Mutexes could not be created
 			luaL_error(L, "Mutexes could not be created"); // call never returns
 		}
-//TODO: add a garbage collector that stops the queue and clients		
+
 		lockSocket();
 		DSS_UDPPort = 0;
 		unlockSocket();
+
+		// Initializes API structure for API 1.0
+		DSS_api_1v0.version = DSS_API_1v0_KEY;
+		DSS_api_1v0.reg = &DSS_register_1v0;
+		DSS_api_1v0.deliver = &DSS_deliver_1v0;
+		DSS_api_1v0.unreg = &DSS_unregister_1v0;
+
+		// Store pointer to my api structure in the Lua registry
+		// for backgroundworkers to collect there
+		lua_settop(L,0);						// clear stack
+		lua_newtable(L);						// push a new table for DSS
+		// add a DSS version key to the DSS table
+		lua_pushstring(L, DSS_VERSION);
+		lua_setfield(L, 1, DSS_VERSION_KEY);
+		// add the DSS api version 1.0 to the DSS table
+		lua_pushlightuserdata(L,&DSS_api_1v0);
+		lua_setfield(L, 1, DSS_API_1v0_KEY);
+		// Push overall DSS table onto the Lua registry
+		lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
+
+		lockUtilList();
+		DSS_status = DSS_STATUS_STARTED;
+		unlockUtilList();
+
 		luaL_register(L,"darksidesync",DarkSideSync);
 		return 1;
 	};

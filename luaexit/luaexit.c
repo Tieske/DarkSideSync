@@ -4,9 +4,11 @@
 #include "luaexit.h"
 #include "darksidesync.h"
 
+#include "darksidesync_aux.c"
 
 static volatile int CallbackReference = LUA_NOREF;
-static DSS_deliver_t DeliverFunction = NULL;
+static pDSS_api_1v0_t DSS_API = NULL;
+static int DSSutilid;
 
 // TODO: for windows implement the following;
 // SetConsoleCtrlHandler http://msdn.microsoft.com/en-us/library/windows/desktop/ms686016(v=vs.85).aspx
@@ -17,6 +19,10 @@ static DSS_deliver_t DeliverFunction = NULL;
 ** Signal handling code
 ** ===============================================================
 */
+	void DSScancel()
+	{
+		// todo: implement
+	}
 
 	// Decodes data and puts it on the Lua stack
 	// pData is always NULL in this case, because we only handle
@@ -24,6 +30,11 @@ static DSS_deliver_t DeliverFunction = NULL;
 	// @returns; as with Lua function, return number of args on the stack to return
 	int signalDecoder (lua_State *L, void *pData)
 	{
+		if (L == NULL)
+		{
+			// element is being cancelled, do nothing
+
+		}
 		lua_settop(L, 0);
 		if (CallbackReference == LUA_NOREF)
 		{
@@ -33,6 +44,7 @@ static DSS_deliver_t DeliverFunction = NULL;
 		}
 		else
 		{
+			// TODO: execute callback from here, no more Lua side code
 			lua_rawgeti(L, LUA_REGISTRYINDEX, CallbackReference);
 			lua_pushstring(L, "SIGTERM");  // TODO: update this, its more than SIGTERM
 			return 2;
@@ -44,7 +56,7 @@ static DSS_deliver_t DeliverFunction = NULL;
 		signal(sigNum, SIG_IGN);	// Temporarily ignore signals
 
 		// deliver signal to DarkSideSync, no data included
-		DeliverFunction (signalDecoder, NULL); // TODO: this is probably not safe in a signal handler!!!!!
+		(*DSS_API).deliver(DSSutilid, &signalDecoder, NULL); // TODO: this is probably not safe in a signal handler!!!!!
 		
 		signal(sigNum, signalHandler); // Set handler again
 	}
@@ -72,17 +84,8 @@ static DSS_deliver_t DeliverFunction = NULL;
 			lua_pushstring(L, "Expected single argument of type function, to be used as callback");
 			return 2;
 		}
-		// Collect the pointer to the deliver function from the register
-		lua_settop(L,0);
-		lua_getfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
-		if (NULL == (DeliverFunction = lua_touserdata(L, 1)))
-		{
-			// no deliver function, error
-			lua_settop(L,0);
-			lua_pushnil(L);
-			lua_pushstring(L, "No delivery possibility found, make sure to require 'darksidesync' first");
-			return 2;
-		}
+
+		// install signal handlers
 		signal(SIGTERM, signalHandler);
 		signal(SIGINT, signalHandler);
 		lua_settop(L,0);
@@ -115,7 +118,13 @@ static DSS_deliver_t DeliverFunction = NULL;
 	};
 
 EXPORT_API	int luaopen_luaexit(lua_State *L){
+
+		// First initialize the DSS client structure
+		DSS_API = DSS_initialize(L, DSS_API_1v0_KEY);	// get API struct
+		DSSutilid = (*DSS_API).reg(&DSScancel);			// register myself
+
 		luaL_register(L,"luaexit",LuaExit);
+
 		return 1;
 	};
 

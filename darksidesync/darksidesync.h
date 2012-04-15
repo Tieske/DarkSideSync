@@ -4,12 +4,8 @@
 
 #include <lua.h>
 
-// Define global name for the Lua registry
-// The background worker can collect a LightUserData
-// from the registry using this name.
-// The pointer contained therein is of type
-// DSS_deliver_t (see DSS_deliver_t)
-#define DSS_REGISTRY_NAME "darksidesync"
+// Setup version information
+#define DSS_VERSION "0.1"
 
 //////////////////////////////////////////////////////////////
 // C side prototypes, implemented by background worker		//
@@ -21,13 +17,13 @@
 // @arg1; the Lua state (or NULL if items are being cancelled)
 // @arg2; the pData previously delivered. NOTE: it is up to the background
 // worker to release any resources related to pData.
-typedef void (*DSS_decoder_t) (lua_State *L, void* pData);
+typedef void (*DSS_decoder_1v0_t) (lua_State *L, void* pData);
 
 // The backgroundworker must provide this function. A pointer
 // to this method should be provided when calling the DSS_register function.
 // When called, the backgroundworker should stop delivering and 
 // unregister itself with DSS.
-typedef void (*DSS_cancel_t) ();
+typedef void (*DSS_cancel_1v0_t) ();
 
 
 //////////////////////////////////////////////////////////////
@@ -40,26 +36,43 @@ typedef void (*DSS_cancel_t) ();
 // @arg1; ID of utility delivering (see register() function)
 // @arg2: pointer to a decoder function (see DSS_decoder_t above)
 // @arg3; pointer to some piece of data.
-// @returns; DSS_SUCCESS, DSS_ERR_INVALID_UTILID, DSS_ERR_UDP_SEND_FAILED, DSS_ERR_OUT_OF_MEMORY
+// @returns; DSS_SUCCESS, DSS_ERR_INVALID_UTILID, DSS_ERR_UDP_SEND_FAILED, 
+// DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED
 // NOTE1: DSS_ERR_UDP_SEND_FAILED means that the data was still delivered to the
 // queue, only the notification failed, for the other errors, it will not be
 // queued.
 // NOTE2: edgecase due to synchronization, when delivering while DSS is stopping
 // DSS_ERR_INVALID_UTILID may be returned, even if cancel() was not called yet,
 // so this should always be checked
-typedef int (*DSS_deliver_t) (int utilid, DSS_decoder_t pDecode, void* pData);
+typedef int (*DSS_deliver_1v0_t) (int utilid, DSS_decoder_1v0_t pDecode, void* pData);
 
 // The background worker should call this to register and get its ID
 // @arg1; pointer to the background workers cancel() method
 // @returns; unique ID for the utility to use in other calls (>0), or
 // DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY
-typedef int (*DSS_register_t) (DSS_cancel_t pCancel);
+typedef int (*DSS_register_1v0_t) (DSS_cancel_1v0_t pCancel);
 
 // The background worker should call this to unregister itself on
 // shutdown. Any items left in the queue will be cancelled.
 // @arg1; the ID of the background worker to unregister
 // @returns: DSS_SUCCESS, DSS_ERR_INVALID_UTILID
-typedef int (*DSS_unregister_t) (int utilid);
+typedef int (*DSS_unregister_1v0_t) (int utilid);
+
+
+// Define global names for the Lua registry
+#define DSS_REGISTRY_NAME "darksidesync"	// key to registry to where DSS will store its API's
+#define DSS_VERSION_KEY "version"			// key to version info within DSS table
+#define DSS_API_1v0_KEY "DSS api 1v0"		// key to struct with this API version, also version string in API struct
+
+// Define structure to contain the API for version 1.0
+typedef struct DSS_api_1v0_s *pDSS_api_1v0_t;
+typedef struct DSS_api_1v0_s {
+		const char* version;
+		DSS_register_1v0_t reg;
+		DSS_deliver_1v0_t deliver;
+		DSS_unregister_1v0_t unreg;
+	} DSS_api_1v0_t;
+
 
 //////////////////////////////////////////////////////////////
 // C side DSS return codes									//

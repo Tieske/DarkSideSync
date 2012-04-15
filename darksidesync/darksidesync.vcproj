@@ -180,6 +180,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\darksidesync_aux.c"
+				>
+			</File>
+			<File
 				RelativePath=".\dss.lua"
 				>
 			</File>
