@@ -12,6 +12,9 @@
 #define DSS_STATUS_STOPPING -2
 #define DSS_STATUS_STOPPED -3
 
+// Lua registry key for lightuserdata to globaldata structure
+#define DSS_GLOBALS_KEY "DSSglobals"
+
 // holds port for notification, or 0 for no notification
 static int volatile DSS_UDPPort;	// use lock before modifying !!
 
@@ -28,10 +31,12 @@ typedef struct qItem {
 // structure for registering utilities
 typedef struct utilReg *putilRecord;
 typedef struct utilReg {
+// TODO: utilid shouldn't be an int, but a void* pointing to the util specific record, its simpler
 		int utilid;				// unique ID to utility
 		DSS_cancel_1v0_t pCancel;	// pointer to cancel function
 		putilRecord pNext;			// Next item in list
 		putilRecord pPrevious;		// Previous item in list
+// TODO: add a pointer to the struct with the stateglobal data, containing all previous static variables
 	} utilRecord;
 
 static pqueueItem volatile QueueStart = NULL;		// Holds first element in the queue
@@ -51,7 +56,7 @@ static DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
 
 /*
 ** ===============================================================
-** Utility registration functions
+** Utility and globals registration functions
 ** ===============================================================
 */
 	// Lookup a utility record for the given utilid
@@ -65,6 +70,16 @@ static DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
 			result = (*result).pNext;
 		}
 		return result;
+	}
+
+	// Gets the pointer to the structure with all LuaState related globals
+	// that are to be kept outside the LuaState (to be accessible from the
+	// async callbacks)
+	// If the structure is not found, a new one is created and initialized.
+	pStateGlobals DSS_getstateglobals(lua_State *L)
+	{
+		//TODO: implement, should it be a lightuserdata, or fulluserdata?
+		//TODO: use DSS_GLOBALS_KEY to collect/store structure
 	}
 
 /*
@@ -480,6 +495,8 @@ DSS_API	int luaopen_darksidesync(lua_State *L){
 		lua_setfield(L, 1, DSS_API_1v0_KEY);
 		// Push overall DSS table onto the Lua registry
 		lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
+		// get or create the stateglobals
+		DSS_getstateglobals(L);
 
 		lockUtilList();
 		DSS_status = DSS_STATUS_STARTED;
