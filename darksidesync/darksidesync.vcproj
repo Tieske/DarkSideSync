@@ -210,6 +210,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\darksidesync_api.h"
+				>
+			</File>
+			<File
 				RelativePath=".\locking.h"
 				>
 			</File>
