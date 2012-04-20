@@ -1,0 +1,28 @@
+proper luastate shutdown;
+=========================
+will go through garbage collect at luastate shutdown
+
+- utility list is stored in library static data
+- data queue is stored in globaldata per luastate
+
+get globaldata from lua registry
+lock
+set status to stopping   >> any utils will now get errors
+unlock  >> allow any waiting utils to actually get the error
+unregister all utilities for this luastate (might require lock/unlock actions)
+  --> there is no async access because access to globaldata is through utilrecord
+      which were all just removed
+lock
+dispose of mutexes and sockets in globaldata
+remove references from registry to API and globaldata
+done!
+
+proper overall shutdown;
+========================
+when networkcount reaches 0, the static data must be disposed of
+lock
+clear everything
+unlock
+destroy lock     --> the last two lines are not safe, another thread myght claim the 
+
+

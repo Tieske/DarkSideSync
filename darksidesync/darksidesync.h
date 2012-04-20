@@ -36,18 +36,15 @@
 // (which cannot call into lua to collect global data there)
 typedef struct stateGlobals *pglobalRecord;
 typedef struct stateGlobals {
+		DSS_mutex_t lock;					// lock to protect struct data
 		// holds port for notification, or 0 for no UDP notification
-		int volatile DSS_UDPPort;			// use lock before modifying !!
+		int volatile udpport;				// use lock for access!
+		struct DSS_socket_t socket;			// structure with socket data, use lock!
 		// Elements for the async data queue
 		pqueueItem volatile QueueStart;		// Holds first element in the queue
 		pqueueItem volatile QueueEnd;		// Holds the last item in the queue
 		int volatile QueueCount;			// Count of items in queue
-		// Lib status
-		int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library, locked by lockUtilList()
-		DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
-
-		//putilRecord pNext;					// Next item in list
-		//putilRecord pPrevious;				// Previous item in list
+		int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library
 	} globalRecord;
 
 // structure for registering utilities

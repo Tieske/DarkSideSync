@@ -2,122 +2,68 @@
 #define dss_locking_h
 
 #ifdef WIN32
-#include <windows.h>
-//#include <stdio.h>
-static HANDLE SocketMutex;
-static HANDLE QueueMutex;
-
+	#include <windows.h>
+	#define DSS_mutex_t = HANDLE
 #else  // Unix
-
-#include <pthread.h>
-static pthread_mutex_t SocketMutex = PTHREAD_MUTEX_INITIALIZER;	//Socket protection
-static pthread_mutex_t QueueMutex = PTHREAD_MUTEX_INITIALIZER;	//Queue protection
-
+	#include <pthread.h>
+	#define DSS_mutex_t = pthread_mutex_t
 #endif
 
-
+//static DSS_mutex_t SocketMutex;
+//static DSS_mutex_t QueueMutex;
 
 /*
 ** ===============================================================
 ** Locking functions
 ** ===============================================================
 */
+
+// Initializes the mutex, returns 0 upon success, 1 otherwise
+int DSS_mutexInit(DSS_mutex_t m)
+{
 #ifdef WIN32
-
-	// Initialize mutexes
-	int initLocks ()
-	{
-		SocketMutex = CreateMutex( 
+	m = CreateMutex( 
 			NULL,              // default security attributes
 			FALSE,             // initially not owned
 			NULL);             // unnamed mutex
+	if (m == NULL)
+		return 1
+	else
+		return 0
+#else
+	int r = pthread_mutex_init(&m, NULL);	// return 0 upon success
+	return r
+#endif
+}
 
-		if (SocketMutex == NULL) 
-		{
-			return 1;	// report failure
-		}		
-		QueueMutex = CreateMutex( 
-			NULL,              // default security attributes
-			FALSE,             // initially not owned
-			NULL);             // unnamed mutex
+// Destroy mutex
+void DSS_mutexDestroy(DSS_mutex_t m)
+{
+#ifdef WIN32
+	CloseHandle(m);
+#else
+	pthread_mutex_destroy(&m);
+#endif
+}
 
-		if (QueueMutex == NULL) 
-		{
-			CloseHandle(SocketMutex); // close created mutex handle
-			return 1;	// report failure
-		}
-		return 0;
-	}
-		
+// Locks a mutex
+void DSS_mutexLock(DSS_mutex_t m)
+{
+#ifdef WIN32
+	WaitForSingleObject(m, INFINITE);
+#else
+	pthread_mutex_lock(&m);
+#endif
+}
 
-	// Lock the UDP socket and the UDPPort variable
-	void lockSocket ()
-	{
-		WaitForSingleObject(SocketMutex, INFINITE);
-	}
-	
-	// Unlock the UDP socket and the UDPPort variable
-	void unlockSocket ()
-	{
-		ReleaseMutex(SocketMutex);
-	}
-
-	// Lock the queue
-	void lockQueue ()
-	{
-		WaitForSingleObject(QueueMutex, INFINITE);
-	}
-	
-	// Unlock the queue
-	void unlockQueue ()
-	{
-		ReleaseMutex(QueueMutex);
-	}
-
-#else   // Unix
-
-	// Initialize mutexes
-	int initLocks ()
-	{
-		return 0;	// nothing to do for posix
-	}
-	
-	// Lock the UDP socket and the UDPPort variable
-	void lockSocket ()
-	{
-		pthread_mutex_lock( &SocketMutex );
-	}
-	
-	// Unlock the UDP socket and the UDPPort variable
-	void unlockSocket ()
-	{
-		pthread_mutex_unlock( &SocketMutex );
-	}
-
-	// Lock the queue
-	void lockQueue ()
-	{
-		pthread_mutex_lock( &QueueMutex );
-	}
-	
-	// Unlock the queue
-	void unlockQueue ()
-	{
-		pthread_mutex_unlock( &QueueMutex );
-	}
-#endif		
-
-	// Lock the utilList, reuse queueLock
-	void lockUtilList ()
-	{
-		lockQueue();
-	}
-	
-	// Unlock the utilList, reuse queueLock
-	void unlockUtilList ()
-	{
-		unlockQueue();
-	}
-
+// Unlocks a mutex
+void DSS_mutexUnlock(DSS_mutex_t m)
+{
+#ifdef WIN32
+	ReleaseMutex(m);
+#else
+	pthread_mutex_unlock(&m);
+#endif
+}
 
 #endif
