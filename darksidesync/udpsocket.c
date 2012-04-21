@@ -8,23 +8,8 @@
 #define DSS_TARGET "localhost"
 
 #ifdef WIN32
-	#include <winsock.h>
 	static WSADATA w;
-#else  // Unix
-	#include <netdb.h>
-	#include <unistd.h>
-	#include <string.h>
 #endif
-
-struct DSS_socket_t {
-	#ifdef WIN32
-		SOCKET udpsock = INVALID_SOCKET;	
-	#else  // Unix
-		int udpsock = INVALID_SOCKET;	
-	#endif
-	struct hostent *hp;
-	struct sockaddr_in receiver_addr;
-}
 
 
 /*

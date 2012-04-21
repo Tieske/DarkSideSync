@@ -31,24 +31,12 @@
 // C side structures for registration and globals			//
 //////////////////////////////////////////////////////////////
 
-// structure for state global variables to be stored outside of the LuaState
-// this is required to be able to access them from an async callback
-// (which cannot call into lua to collect global data there)
+// first forward declare these to resolve circular references
+typedef struct utilReg *putilRecord;
+typedef struct qItem *pqueueItem;
 typedef struct stateGlobals *pglobalRecord;
-typedef struct stateGlobals {
-		DSS_mutex_t lock;					// lock to protect struct data
-		// holds port for notification, or 0 for no UDP notification
-		int volatile udpport;				// use lock for access!
-		struct DSS_socket_t socket;			// structure with socket data, use lock!
-		// Elements for the async data queue
-		pqueueItem volatile QueueStart;		// Holds first element in the queue
-		pqueueItem volatile QueueEnd;		// Holds the last item in the queue
-		int volatile QueueCount;			// Count of items in queue
-		int volatile DSS_status = DSS_STATUS_STOPPED;	// Status of library
-	} globalRecord;
 
 // structure for registering utilities
-typedef struct utilReg *putilRecord;
 typedef struct utilReg {
 		//int utilid;				// unique ID to utility   --- replaced by pointer to this record
 		DSS_cancel_1v0_t pCancel;	// pointer to cancel function
@@ -58,7 +46,6 @@ typedef struct utilReg {
 	} utilRecord;
 
 // Structure for storing data from an async callback in the queue
-typedef struct qItem *pqueueItem;
 typedef struct qItem {
 		putilRecord utilid;			// unique ID to utility
 		DSS_decoder_1v0_t pDecode;	// Pointer to the decode function
@@ -66,6 +53,21 @@ typedef struct qItem {
 		pqueueItem pNext;			// Next item in queue
 		pqueueItem pPrevious;		// Previous item in queue
 	} queueItem;
+
+// structure for state global variables to be stored outside of the LuaState
+// this is required to be able to access them from an async callback
+// (which cannot call into lua to collect global data there)
+typedef struct stateGlobals {
+		DSS_mutex_t lock;					// lock to protect struct data
+		// holds port for notification, or 0 for no UDP notification
+		int volatile udpport;				// use lock for access!
+		DSS_socket_t socket;				// structure with socket data, use lock!
+		// Elements for the async data queue
+		pqueueItem volatile QueueStart;		// Holds first element in the queue
+		pqueueItem volatile QueueEnd;		// Holds the last item in the queue
+		int volatile QueueCount;			// Count of items in queue
+		int volatile DSS_status;			// Status of library
+	} globalRecord;
 
 
 #endif /* darksidesync_h */

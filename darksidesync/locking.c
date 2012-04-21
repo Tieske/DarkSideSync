@@ -1,16 +1,6 @@
 #ifndef dss_locking_h
 #define dss_locking_h
 
-#ifdef WIN32
-	#include <windows.h>
-	#define DSS_mutex_t = HANDLE
-#else  // Unix
-	#include <pthread.h>
-	#define DSS_mutex_t = pthread_mutex_t
-#endif
-
-//static DSS_mutex_t SocketMutex;
-//static DSS_mutex_t QueueMutex;
 
 /*
 ** ===============================================================
