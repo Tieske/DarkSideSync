@@ -1,5 +1,5 @@
-#ifndef dss_udpsocket_h
-#define dss_udpsocket_h
+#ifndef dss_udpsocket_c
+#define dss_udpsocket_c
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -31,11 +31,9 @@ int DSS_networkInit()
 // Shutdown network
 void DSS_networkStop()
 {
-	int result = 1;
 	#ifdef WIN32
 		WSACleanup();
 	#endif
-	return result;
 }
 
 // Close socket
@@ -90,10 +88,10 @@ DSS_socket_t DSS_socketNew(int port)
 			}
 
 			/* Set target address */
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b1 = hp->h_addr_list[0][0];
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b2 = hp->h_addr_list[0][1];
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b3 = hp->h_addr_list[0][2];
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b4 = hp->h_addr_list[0][3];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b1 = s.hp->h_addr_list[0][0];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b2 = s.hp->h_addr_list[0][1];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b3 = s.hp->h_addr_list[0][2];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b4 = s.hp->h_addr_list[0][3];
 
 		#else
 

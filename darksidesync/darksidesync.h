@@ -4,13 +4,15 @@
 
 #include <lua.h>
 #include "darksidesync_api.h"
+#include "udpsocket.h"
+#include "locking.h"
 
 //////////////////////////////////////////////////////////////
 // symbol list												//
 //////////////////////////////////////////////////////////////
 
 // Define symbol for last queue item, independent of utilid
-#define DSS_LASTITEM -1
+#define DSS_LASTITEM NULL
 
 // Symbols for library status 
 #define DSS_STATUS_STARTED -1
@@ -59,14 +61,13 @@ typedef struct qItem {
 // (which cannot call into lua to collect global data there)
 typedef struct stateGlobals {
 		DSS_mutex_t lock;					// lock to protect struct data
-		// holds port for notification, or 0 for no UDP notification
-		int volatile udpport;				// use lock for access!
-		DSS_socket_t socket;				// structure with socket data, use lock!
+		int volatile udpport;				// 0 = no nitfication
+		DSS_socket_t socket;				// structure with socket data
+		int volatile DSS_status;			// Status of library
 		// Elements for the async data queue
 		pqueueItem volatile QueueStart;		// Holds first element in the queue
 		pqueueItem volatile QueueEnd;		// Holds the last item in the queue
 		int volatile QueueCount;			// Count of items in queue
-		int volatile DSS_status;			// Status of library
 	} globalRecord;
 
 

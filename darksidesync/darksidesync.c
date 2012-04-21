@@ -100,6 +100,7 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	}
 
 	// checks global struct, returns 1 if valid, 0 otherwise
+	// TODO: should this LOCK the global record?
 	int DSS_isvalidglobals(pglobalRecord g)
 	{
 		if (g == NULL || (*g).DSS_status != DSS_STATUS_STARTED)
@@ -117,9 +118,12 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	pglobalRecord DSS_getvalidglobals(lua_State *L)
 	{
 		pglobalRecord g = DSS_getstateglobals(L);
-		if (DSS_isvalidglobals(g)) return g;
-		// following error call will not return
-		luaL_error(L, "DSS was not started yet, or already stopped");
+		if (DSS_isvalidglobals(g) == 0) 
+		{
+			// following error call will not return
+			luaL_error(L, "DSS was not started yet, or already stopped");
+		}
+		return g;
 	}
 
 	void DSS_clearstateglobals(lua_State *L)
@@ -375,8 +379,8 @@ void setUDPPort (pglobalRecord globals, int newPort);
 			{
 				// sending failed, retry; close create new and do again
 				DSS_socketClose((*globals).socket);
-				(*globals).socket = DSS_socketNew((*globals).socket, (*globals).udpport); 
-				if (sendPacket(globals, buff) == 0)
+				(*globals).socket = DSS_socketNew((*globals).udpport); 
+				if (DSS_socketSend((*globals).socket, buff) == 0)
 				{
 					result = DSS_ERR_UDP_SEND_FAILED;		// report failure
 				}
@@ -398,6 +402,7 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	{
 		putilRecord util;
 		putilRecord last;
+		pglobalRecord globals = DSS_getvalidglobals(L); // will not return on failure 
 
 		DSS_mutexLock(utillock);
 		*errcode = DSS_SUCCESS;
@@ -425,7 +430,6 @@ void setUDPPort (pglobalRecord globals, int newPort);
 			return NULL; //DSS_ERR_OUT_OF_MEMORY;
 		}
 		(*util).pCancel = pCancel;
-		(*util).utilid = newid;
 		(*util).pGlobals = globals;
 		(*util).pNext = NULL;
 		(*util).pPrevious = NULL;
@@ -455,29 +459,32 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	// returns DSS_SUCCESS, DSS_ERR_INVALID_UTILID
 	int DSS_unregister_1v0(putilRecord utilid)
 	{
+		pglobalRecord globals;
+		queueItem qi;
+
 		DSS_mutexLock(utillock);
 		if (DSS_validutil(utilid) == 0)
 		{
 			// invalid ID
-			DSS_mutexUnlock((*globals).lock);
+			DSS_mutexUnlock(utillock);
 			return DSS_ERR_INVALID_UTILID;
 		}
-		pglobalRecord globals = (*utilid).pGlobals
-		queueItem qi;
+		globals = (*utilid).pGlobals;
 
 		// remove it from the list
 		if (UtilStart == utilid) UtilStart = (*utilid).pNext;
 		if ((*utilid).pNext != NULL) (*(*utilid).pNext).pPrevious = (*utilid).pPrevious;
 		if ((*utilid).pPrevious != NULL) (*(*utilid).pPrevious).pNext = (*utilid).pNext;
-		free(utilid);
 
 		// cancel all items still in the queue
 		qi = queuePop(globals, utilid);
 		while (qi.pDecode != NULL)
 		{
-			qi.pDecode(NULL, qi.pData);	// no LuaState, use NULL to indicate cancelling
+			qi.pDecode(NULL, qi.pData, utilid);	// no LuaState, use NULL to indicate cancelling
 			qi = queuePop(globals, utilid);		// get next one
 		}
+		// free resources
+		free(utilid);
 
 		// Unlock, we're done with the util list
 		DSS_mutexUnlock(utillock);
@@ -514,41 +521,12 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	int L_getport (lua_State *L)
 	{
 		pglobalRecord globals = DSS_getvalidglobals(L); // won't return on error
-		DSS_mutexLock((*globals).SocketLock);
+		DSS_mutexLock((*globals).lock);
 		lua_pushinteger(L, (*globals).udpport);
-		DSS_mutexUnlock((*globals).SocketLock);
+		DSS_mutexUnlock((*globals).lock);
 		return 1;
 	};
 
-	// Lua function to stop the library 
-	// will cancel all registered utilities.
-	// This must go! should be in GC collect
-	int L_stop(lua_State *L)
-	{
-		pglobalRecord globals = DSS_getstateglobals(L);
-		putilRecord listend = NULL;
-
-		// Clear pointer to DSS api table in the Lua registry
-		lua_pushnil(L);
-		lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
-
-		lockUtilList();
-
-		// cancel all utilities, in reverse order
-		while (UtilStart != NULL)
-		{
-			listend = UtilStart;
-			while ((*listend).pNext != NULL) listend = (*listend).pNext;
-
-			unlockUtilList();
-			(*listend).pCancel(listend);	// call this utility cancel method
-			lockUtilList();
-		}
-		
-		(*globals).DSS_status = DSS_STATUS_STOPPED;
-		unlockUtilList();
-		return 0;
-	}
 
 	// Lua function to get the next item from the queue, its decode
 	// function will be called to do what needs to be done
@@ -590,27 +568,29 @@ void setUDPPort (pglobalRecord globals, int newPort);
 		{NULL,NULL}
 	};
 
-DSS_API	int luaopen_darksidesync(lua_State *L){
+DSS_API	int luaopen_darksidesync(lua_State *L)
+	{
+		pglobalRecord globals;
 
 		if (DSS_initialized == NULL)  // TODO: first initialization of first mutex, this is unsafe! how to make it safe?
 		{
 			if (DSS_mutexInit(utillock) != 0)
 			{
 				// an error occured while initializing the 2 global mutexes
-				return luaL_error(L,"DSS had an error initializing its mutexes")
+				return luaL_error(L,"DSS had an error initializing its mutexes");
 			}
-			DSS_mutexLock(utillock)
+			DSS_mutexLock(utillock);
 			if (DSS_mutexInit(statelock) != 0)
 			{
 				// an error occured while initializing the 2 global mutexes
-				DSS_mutexUnlock(utillock)
-				return luaL_error(L,"DSS had an error initializing its mutexes")
+				DSS_mutexUnlock(utillock);
+				return luaL_error(L,"DSS had an error initializing its mutexes");
 			}
-			DSS_mutexUnlock(utillock)
+			DSS_mutexUnlock(utillock);
 		}
 
 		// get or create the stateglobals
-		pglobalRecord globals = DSS_getstateglobals(L);
+		globals = DSS_getstateglobals(L);
 		(*globals).DSS_status = DSS_STATUS_STARTED;
 
 		// Initializes API structure for API 1.0

@@ -1,6 +1,7 @@
-#ifndef dss_locking_h
-#define dss_locking_h
+#ifndef dss_locking_c
+#define dss_locking_c
 
+#include "locking.h"
 
 /*
 ** ===============================================================
@@ -17,9 +18,9 @@ int DSS_mutexInit(DSS_mutex_t m)
 			FALSE,             // initially not owned
 			NULL);             // unnamed mutex
 	if (m == NULL)
-		return 1
+		return 1;
 	else
-		return 0
+		return 0;
 #else
 	int r = pthread_mutex_init(&m, NULL);	// return 0 upon success
 	return r

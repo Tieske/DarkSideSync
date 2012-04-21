@@ -48,20 +48,21 @@ typedef void (*DSS_cancel_1v0_t) (void* utilid);
 // NOTE2: edgecase due to synchronization, when delivering while DSS is stopping
 // DSS_ERR_INVALID_UTILID may be returned, even if cancel() was not called yet,
 // so this should always be checked
-typedef int (*DSS_deliver_1v0_t) (int utilid, DSS_decoder_1v0_t pDecode, void* pData);
+typedef int (*DSS_deliver_1v0_t) (void* utilid, DSS_decoder_1v0_t pDecode, void* pData);
 
 // The background worker should call this to register and get its ID
 // @arg1; pointer to LuaState
 // @arg2; pointer to the background workers cancel() method
-// @returns; unique ID for the utility to use in other calls (>0), or
+// @arg3; int pointer that will receive the error code, or DSS_SUCCESS if no error
+// @returns; unique ID (for the utility to use in other calls), or NULL and error
 // DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY
-typedef int (*DSS_register_1v0_t) (lua_State *L, DSS_cancel_1v0_t pCancel);
+typedef void* (*DSS_register_1v0_t) (lua_State *L, DSS_cancel_1v0_t pCancel, int* errcode);
 
 // The background worker should call this to unregister itself on
 // shutdown. Any items left in the queue will be cancelled.
 // @arg1; the ID of the background worker to unregister
 // @returns: DSS_SUCCESS, DSS_ERR_INVALID_UTILID
-typedef int (*DSS_unregister_1v0_t) (int utilid);
+typedef int (*DSS_unregister_1v0_t) (void* utilid);
 
 
 // Define global names for the Lua registry
