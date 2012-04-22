@@ -27,7 +27,8 @@ typedef void (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* utilid);
 // unregister itself with DSS.
 // @arg1;  the unique utility ID for which the call is being made (in case
 // the utility has been 'required' in multiple parallel lua states)
-typedef void (*DSS_cancel_1v0_t) (void* utilid);
+// @arg2; pointer to the data provided when registering, see DSS_register_1v0_t
+typedef void (*DSS_cancel_1v0_t) (void* utilid, void* pData);
 
 
 //////////////////////////////////////////////////////////////
@@ -50,16 +51,31 @@ typedef void (*DSS_cancel_1v0_t) (void* utilid);
 // so this should always be checked
 typedef int (*DSS_deliver_1v0_t) (void* utilid, DSS_decoder_1v0_t pDecode, void* pData);
 
+// Returns the data associated with the given utilid
+// @arg1; ID of utility delivering (see register() function)
+// Returns; pointer to the data provided when registering, see DSS_register_1v0_t,
+// or NULL if an invalid utilid was provided (or the actual data was NULL).
+typedef void* (*DSS_getdata_1v0_t) (void* utilid);
+
+// Sets the data associated with the given utilid
+// @arg1; ID of utility delivering (see register() function)
+// @arg2; pointer to the data
+// NOTE; an error due to an invalid utilid will be ignored silently
+typedef void (*DSS_setdata_1v0_t) (void* utilid, void* pData);
+
 // The background worker should call this to register and get its ID
 // @arg1; pointer to LuaState
 // @arg2; pointer to the background workers cancel() method
-// @arg3; int pointer that will receive the error code, or DSS_SUCCESS if no error
+// @arg3; pointer to data specific to the background worker and the LuaState
+// @arg4; int pointer that will receive the error code, or DSS_SUCCESS if no error
 // @returns; unique ID (for the utility to use in other calls), or NULL and error
 // DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY
-typedef void* (*DSS_register_1v0_t) (lua_State *L, DSS_cancel_1v0_t pCancel, int* errcode);
+typedef void* (*DSS_register_1v0_t) (lua_State *L, DSS_cancel_1v0_t pCancel, void* pData, int* errcode);
 
 // The background worker should call this to unregister itself on
 // shutdown. Any items left in the queue will be cancelled.
+// Note: this is the last opportunity to access the data, so the background
+// worker should make sure to collect it and dispose of it properly.
 // @arg1; the ID of the background worker to unregister
 // @returns: DSS_SUCCESS, DSS_ERR_INVALID_UTILID
 typedef int (*DSS_unregister_1v0_t) (void* utilid);
@@ -76,6 +92,8 @@ typedef struct DSS_api_1v0_s {
 		const char* version;
 		DSS_register_1v0_t reg;
 		DSS_deliver_1v0_t deliver;
+		DSS_getdata_1v0_t getdata;
+		DSS_setdata_1v0_t setdata;
 		DSS_unregister_1v0_t unreg;
 	} DSS_api_1v0_t;
 

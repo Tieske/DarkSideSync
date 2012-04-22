@@ -8,7 +8,7 @@
 
 static volatile int CallbackReference = LUA_NOREF;
 static pDSS_api_1v0_t DSS_API = NULL;
-static int DSSutilid;
+static void* DSSutilid;
 
 // TODO: for windows implement the following;
 // SetConsoleCtrlHandler http://msdn.microsoft.com/en-us/library/windows/desktop/ms686016(v=vs.85).aspx

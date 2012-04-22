@@ -151,7 +151,7 @@ void setUDPPort (pglobalRecord globals, int newPort);
 			while ((*listend).pNext != NULL) listend = (*listend).pNext;
 
 			DSS_mutexUnlock(utillock);		// must unlock to let the cancel function succeed
-			(*listend).pCancel(listend);	// call this utility's cancel method
+			(*listend).pCancel(listend, (*listend).pUtilData);	// call this utility's cancel method
 			DSS_mutexLock(utillock);		// lock again to get the next one
 		}
 		DSS_mutexUnlock(utillock);
@@ -344,12 +344,12 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	// DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED, DSS_ERR_INVALID_UTILID
 	int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData)
 	{
-		pglobalRecord globals = (*utilid).pGlobals;
+		pglobalRecord globals = (*utilid).pGlobals;	// TODO: should lock before accessing!! check others as well!
 		int result = DSS_SUCCESS;	// report success by default
 		int cnt;
 		char buff[20];
 
-		DSS_mutexLock((*globals).lock);
+		DSS_mutexLock((*globals).lock);	//TODO: shouldn't this be the utillock?
 		if (DSS_validutil(utilid) == 0)
 		{
 			// invalid ID
@@ -391,6 +391,33 @@ void setUDPPort (pglobalRecord globals, int newPort);
 		return result;	
 	};
 
+	// Returns the data associated with the Utility, or
+	// NULL upon an invalid utilid
+	void* DSS_getdata_1v0(putilRecord utilid)
+	{
+		void* result;
+		DSS_mutexLock(utillock);	
+		if (DSS_validutil(utilid))
+		{
+			result = (*utilid).pUtilData;
+		}
+		else
+		{
+			result = NULL;
+		}
+		DSS_mutexUnlock(utillock);
+		return result;
+	}
+
+	// Sets the data associated with the Utility
+	// Note; invalid utildid is ignored silently
+	void DSS_setdata_1v0(putilRecord utilid, void* pData)
+	{
+		DSS_mutexLock(utillock);	
+		if (DSS_validutil(utilid)) (*utilid).pUtilData = pData;
+		DSS_mutexUnlock(utillock);
+	}
+
 	// register a library to use DSS 
 	// @arg1; the globals record the utility is added to
 	// @arg2; pointer to the cancel method of the utility, will be called
@@ -398,7 +425,7 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	// Returns: unique ID for the utility that must be used for all subsequent
 	// calls to DSS, or NULL if it failed.
 	// Failure reasons; DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED or DSS_ERR_OUT_OF_MEMORY
-	putilRecord DSS_register_1v0(lua_State *L, DSS_cancel_1v0_t pCancel, int* errcode)
+	putilRecord DSS_register_1v0(lua_State *L, DSS_cancel_1v0_t pCancel, void* pData, int* errcode)
 	{
 		putilRecord util;
 		putilRecord last;
@@ -431,6 +458,7 @@ void setUDPPort (pglobalRecord globals, int newPort);
 		}
 		(*util).pCancel = pCancel;
 		(*util).pGlobals = globals;
+		(*util).pUtilData = pData;
 		(*util).pNext = NULL;
 		(*util).pPrevious = NULL;
 
@@ -597,6 +625,8 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 		DSS_api_1v0.version = DSS_API_1v0_KEY;
 		DSS_api_1v0.reg = &DSS_register_1v0;
 		DSS_api_1v0.deliver = &DSS_deliver_1v0;
+		DSS_api_1v0.getdata = &DSS_getdata_1v0;
+		DSS_api_1v0.setdata = &DSS_setdata_1v0;
 		DSS_api_1v0.unreg = &DSS_unregister_1v0;
 
 		// Store pointer to my api structure in the Lua registry

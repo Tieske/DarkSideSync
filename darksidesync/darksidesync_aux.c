@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <lauxlib.h>
 #include <string.h>
-#include "darksidesync.h"
+#include "darksidesync_api.h"
 
 
 // will return the api struct (pointer) for the specified api version
