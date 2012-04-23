@@ -15,8 +15,7 @@
 // will get a pointer to previously delivered pData and is responsible
 // for decoding this pData and take appropriate action.
 // @arg1; the Lua state (or NULL if items are being cancelled)
-// @arg2; the pData previously delivered. NOTE: it is up to the background
-// worker to release any resources related to pData.
+// @arg2; the pData previously delivered. 
 // @arg3;  the unique utility ID for which the call is being made (in case
 // the utility has been 'required' in multiple parallel lua states)
 typedef void (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* utilid);
@@ -82,6 +81,7 @@ typedef void* (*DSS_getutilid_1v0_t) (lua_State *L, void* libid, int* errcode);
 //          static void* myLibID = &myLibID;	// pointer to itself
 // @arg3; pointer to the background workers cancel() method
 // @arg4; pointer to data specific to the background worker and the LuaState
+// NOTE: it is up to the background worker to release any resources related to pData
 // @arg5; int pointer that will receive the error code, or DSS_SUCCESS if no error (param may be NULL)
 // @returns; unique ID (for the utility to use in other calls), or NULL and error
 // DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY
@@ -124,5 +124,5 @@ typedef struct DSS_api_1v0_s {
 #define DSS_ERR_NOT_STARTED -4			// DSS hasn't been started, or was already stopping/stopped
 #define DSS_ERR_NO_CANCEL_PROVIDED -5	// When registering the cancel method is required
 #define DSS_ERR_OUT_OF_MEMORY -6		// memory allocation failed
-
+#define DSS_ERR_INIT_MUTEX_FAILED -7	// initialization of mutex failed
 #endif /* darksidesync_api_h */

@@ -130,7 +130,7 @@ int DSS_socketSend(DSS_socket_t s, char *pData)
 {
 	if (s.udpsock != INVALID_SOCKET)
 	{
-		//TODO: remove platform stuff; why the +1 for length at WIN32 and not the other?
+		//TODO: remove platform stuff; why the +1 for length at WIN32 and not the other? so far for copy-paste examples :-/
 		#ifdef WIN32
 			/* Tranmsit data */
 			if (sendto(s.udpsock, pData, (int)strlen(pData) + 1, 0, (struct sockaddr *)&s.receiver_addr, sizeof(struct sockaddr_in)) == -1)

@@ -23,6 +23,21 @@ when networkcount reaches 0, the static data must be disposed of
 lock
 clear everything
 unlock
-destroy lock     --> the last two lines are not safe, another thread myght claim the 
+destroy lock     --> the last two lines are not safe, another thread might claim the 
 
+
+Accessing the global state data;
+===============================
+When accessing it from a Lua callable function (anything with a lua_state 
+parameter), then no locks will necessary when acquiring the global record because
+it will only be created or destroyed from a Lua thread, and those are single 
+threaded by nature. NOTE: this applies only to collecting the record! NOT to
+modifying/reading it. Lock the global structure through its own lock before 
+reading/writing, and unlock when done.
+
+When accessing the global data structure from a background worker, first lock
+the utillock mutex before accessing the utillist.
+Verify the utilid, then collect the global record. Lock the record using its
+own lock, only then release the utillock. Do the reading/writing and unlock 
+when done.
 
