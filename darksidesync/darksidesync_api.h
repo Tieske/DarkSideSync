@@ -6,6 +6,10 @@
 
 // Setup version information
 #define DSS_VERSION "0.1"
+// Define global names for the Lua registry
+#define DSS_REGISTRY_NAME "DSS.DarkSideSync"	// key to registry to where DSS will store its API's
+#define DSS_VERSION_KEY "Version"				// key to version info within DSS table
+#define DSS_API_1v0_KEY "DSS API 1v0"			// key to struct with this API version (within DSS table), also used as version string in API struct
 
 //////////////////////////////////////////////////////////////
 // C side prototypes, implemented by background worker		//
@@ -95,12 +99,6 @@ typedef void* (*DSS_register_1v0_t) (lua_State *L, void* libid, DSS_cancel_1v0_t
 // @arg1; the ID of the background worker to unregister
 // @returns: DSS_SUCCESS, DSS_ERR_INVALID_UTILID
 typedef int (*DSS_unregister_1v0_t) (void* utilid);
-
-
-// Define global names for the Lua registry
-#define DSS_REGISTRY_NAME "darksidesync"	// key to registry to where DSS will store its API's
-#define DSS_VERSION_KEY "version"			// key to version info within DSS table
-#define DSS_API_1v0_KEY "DSS api 1v0"		// key to struct with this API version, also version string in API struct
 
 // Define structure to contain the API for version 1.0
 typedef struct DSS_api_1v0_s *pDSS_api_1v0_t;

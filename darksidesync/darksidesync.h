@@ -19,8 +19,10 @@
 #define DSS_STATUS_STOPPING -2
 #define DSS_STATUS_STOPPED -3
 
-// Lua registry key for lightuserdata to globaldata structure
-#define DSS_GLOBALS_KEY "DSSglobals"
+// Lua registry key for globaldata structure
+#define DSS_GLOBALS_KEY "DSS.globals"
+// Lua registry key for metatable of the global structure userdata
+#define DSS_GLOBALS_MT "DSS.globals.mt"
 
 // Define platform specific extern statement
 #ifdef WIN32
