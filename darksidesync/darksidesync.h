@@ -40,11 +40,11 @@ typedef struct stateGlobals *pglobalRecord;
 
 // structure for registering utilities
 typedef struct utilReg {
-		//int utilid;				// unique ID to utility   --- replaced by pointer to this record
 		DSS_cancel_1v0_t pCancel;	// pointer to cancel function
 		putilRecord pNext;			// Next item in list
 		putilRecord pPrevious;		// Previous item in list
 		pglobalRecord pGlobals;		// pointer to the global data for this utility
+		void* libid;				// unique library specific ID
 		void* pUtilData;			// pointer to backgroundworker data
 	} utilRecord;
 

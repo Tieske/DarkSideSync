@@ -393,9 +393,14 @@ void setUDPPort (pglobalRecord globals, int newPort);
 
 	// Returns the data associated with the Utility, or
 	// NULL upon an invalid utilid
-	void* DSS_getdata_1v0(putilRecord utilid)
+	void* DSS_getdata_1v0(putilRecord utilid, int* errcode)
 	{
 		void* result;
+		
+		int le;	// local errorcode
+		if (errcode == NULL) errcode = &le;
+		*errcode = DSS_SUCCESS;
+
 		DSS_mutexLock(utillock);	
 		if (DSS_validutil(utilid))
 		{
@@ -403,6 +408,7 @@ void setUDPPort (pglobalRecord globals, int newPort);
 		}
 		else
 		{
+			*errcode = DSS_ERR_INVALID_UTILID;
 			result = NULL;
 		}
 		DSS_mutexUnlock(utillock);
@@ -411,11 +417,60 @@ void setUDPPort (pglobalRecord globals, int newPort);
 
 	// Sets the data associated with the Utility
 	// Note; invalid utildid is ignored silently
-	void DSS_setdata_1v0(putilRecord utilid, void* pData)
+	int DSS_setdata_1v0(putilRecord utilid, void* pData)
 	{
+		int result = DSS_SUCCESS;
 		DSS_mutexLock(utillock);	
-		if (DSS_validutil(utilid)) (*utilid).pUtilData = pData;
+		if (DSS_validutil(utilid))
+		{
+			(*utilid).pUtilData = pData;
+		}
+		else
+		{
+			result = DSS_ERR_INVALID_UTILID;
+		}
 		DSS_mutexUnlock(utillock);
+		return result;
+	}
+
+	// return NULL upon failure
+	void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
+	{
+		pglobalRecord globals = DSS_getvalidglobals(L);
+		putilRecord utilid = NULL;
+
+		int le;	// local errorcode
+		if (errcode == NULL) errcode = &le;
+		*errcode = DSS_SUCCESS;
+
+		if (globals != NULL)
+		{
+			// we've got a set of globals, now compare this to the utillist
+			utilid = UtilStart;
+			DSS_mutexLock(utillock);
+			while (utilid != NULL)
+			{
+				if (((*utilid).pGlobals == globals) && ((*utilid).libid == libid))
+				{
+					//This utilid matches both the LuaState (globals) and the libid.
+					DSS_mutexUnlock(utillock);
+					return utilid;	// found it, return and exit.
+				}
+
+				// No match, try next one in the list
+				utilid = (*utilid).pNext;
+			}
+			DSS_mutexUnlock(utillock);
+		}
+		else
+		{
+			// No Globals found
+			*errcode = DSS_ERR_NOT_STARTED;
+			return NULL;
+		}
+		// we had globals, failed anyway, so no valid utilid
+		*errcode = DSS_ERR_INVALID_UTILID;
+		return NULL;	// failed
 	}
 
 	// register a library to use DSS 
@@ -425,14 +480,17 @@ void setUDPPort (pglobalRecord globals, int newPort);
 	// Returns: unique ID for the utility that must be used for all subsequent
 	// calls to DSS, or NULL if it failed.
 	// Failure reasons; DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED or DSS_ERR_OUT_OF_MEMORY
-	putilRecord DSS_register_1v0(lua_State *L, DSS_cancel_1v0_t pCancel, void* pData, int* errcode)
+	putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, void* pData, int* errcode)
 	{
 		putilRecord util;
 		putilRecord last;
 		pglobalRecord globals = DSS_getvalidglobals(L); // will not return on failure 
 
-		DSS_mutexLock(utillock);
+		int le;	// local errorcode
+		if (errcode == NULL) errcode = &le;
 		*errcode = DSS_SUCCESS;
+
+		DSS_mutexLock(utillock);
 		if ((*globals).DSS_status != DSS_STATUS_STARTED)
 		{
 			// DSS isn't running
@@ -459,6 +517,7 @@ void setUDPPort (pglobalRecord globals, int newPort);
 		(*util).pCancel = pCancel;
 		(*util).pGlobals = globals;
 		(*util).pUtilData = pData;
+		(*util).libid = libid;
 		(*util).pNext = NULL;
 		(*util).pPrevious = NULL;
 
@@ -624,6 +683,7 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 		// Initializes API structure for API 1.0
 		DSS_api_1v0.version = DSS_API_1v0_KEY;
 		DSS_api_1v0.reg = &DSS_register_1v0;
+		DSS_api_1v0.getutilid = &DSS_getutilid_1v0;
 		DSS_api_1v0.deliver = &DSS_deliver_1v0;
 		DSS_api_1v0.getdata = &DSS_getdata_1v0;
 		DSS_api_1v0.setdata = &DSS_setdata_1v0;

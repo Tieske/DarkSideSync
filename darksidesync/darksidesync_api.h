@@ -53,29 +53,45 @@ typedef int (*DSS_deliver_1v0_t) (void* utilid, DSS_decoder_1v0_t pDecode, void*
 
 // Returns the data associated with the given utilid
 // @arg1; ID of utility delivering (see register() function)
+// @arg2; int pointer that will receive the error code DSS_ERR_INVALID_UTILID,
+// or DSS_SUCCESS if no error (param may be NULL)
 // Returns; pointer to the data provided when registering, see DSS_register_1v0_t,
-// or NULL if an invalid utilid was provided (or the actual data was NULL).
-typedef void* (*DSS_getdata_1v0_t) (void* utilid);
+// or NULL if an error occured (or the actual data was NULL).
+typedef void* (*DSS_getdata_1v0_t) (void* utilid, int* errcode);
 
 // Sets the data associated with the given utilid
 // @arg1; ID of utility delivering (see register() function)
 // @arg2; pointer to the data
-// NOTE; an error due to an invalid utilid will be ignored silently
-typedef void (*DSS_setdata_1v0_t) (void* utilid, void* pData);
+// returns errorcode; DSS_SUCCESS, or DSS_ERR_INVALID_UTILID;
+typedef int (*DSS_setdata_1v0_t) (void* utilid, void* pData);
+
+// returns the utilid, for the combination of the LuaState and libid provided
+// when handling a call form Lua, this enables access to the utilid, without
+// having to explcitly manage utilid's across different LuaStates.
+// @arg1; LuaState pointer, this identifies a unique LuaState
+// @arg2; libid, generic pointer as an ID to a library (ID is shared across LuaStates)
+// @arg3; int pointer that will receive the error code DSS_ERR_INVALID_UTILID,
+// DSS_ERR_NOT_STARTED or DSS_SUCCESS if no error (param may be NULL)
+// Returns: utilid, the ID that uniqueliy identifies the combination of a 
+// LuaState and a background worker, or NULL upon failure (check errcode).
+typedef void* (*DSS_getutilid_1v0_t) (lua_State *L, void* libid, int* errcode);
 
 // The background worker should call this to register and get its ID
 // @arg1; pointer to LuaState
-// @arg2; pointer to the background workers cancel() method
-// @arg3; pointer to data specific to the background worker and the LuaState
-// @arg4; int pointer that will receive the error code, or DSS_SUCCESS if no error
+// @arg2; ID for the library registering, can simply be;
+//          static void* myLibID = &myLibID;	// pointer to itself
+// @arg3; pointer to the background workers cancel() method
+// @arg4; pointer to data specific to the background worker and the LuaState
+// @arg5; int pointer that will receive the error code, or DSS_SUCCESS if no error (param may be NULL)
 // @returns; unique ID (for the utility to use in other calls), or NULL and error
 // DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY
-typedef void* (*DSS_register_1v0_t) (lua_State *L, DSS_cancel_1v0_t pCancel, void* pData, int* errcode);
+typedef void* (*DSS_register_1v0_t) (lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, void* pData, int* errcode);
 
 // The background worker should call this to unregister itself on
 // shutdown. Any items left in the queue will be cancelled.
-// Note: this is the last opportunity to access the data, so the background
-// worker should make sure to collect it and dispose of it properly.
+// Note: After unregistering, the pData is no longer accessible. So the background
+// worker should make sure to collect it before unregistering and (later on) 
+// dispose of it properly.
 // @arg1; the ID of the background worker to unregister
 // @returns: DSS_SUCCESS, DSS_ERR_INVALID_UTILID
 typedef int (*DSS_unregister_1v0_t) (void* utilid);
@@ -91,6 +107,7 @@ typedef struct DSS_api_1v0_s *pDSS_api_1v0_t;
 typedef struct DSS_api_1v0_s {
 		const char* version;
 		DSS_register_1v0_t reg;
+		DSS_getutilid_1v0_t getutilid;
 		DSS_deliver_1v0_t deliver;
 		DSS_getdata_1v0_t getdata;
 		DSS_setdata_1v0_t setdata;
