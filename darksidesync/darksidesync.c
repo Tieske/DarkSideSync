@@ -14,6 +14,8 @@ static DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
 // forward definitions
 void setUDPPort (pglobalRecord globals, int newPort);
 
+//TODO minor:access the global should check on its metatable? is on registry, cannot modify from Lua, so is it an issue??
+
 /*
 ** ===============================================================
 ** Utility and globals registration functions
@@ -31,15 +33,62 @@ static int DSS_hasstateglobals(lua_State *L)
 	return 1;
 }
 
+// Creates a new global record and stores it in the registry
+// will overwrite existing if present!!
+// Returns: created globalrecord or NULL on failure
+// provide errno may be NULL; possible errcode;
+// DSS_SUCCESS, DSS_ERR_OUT_OF_MEMORY, DSS_ERR_INIT_MUTEX_FAILED, DSS_ERR_NO_GLOBALS
+static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
+{
+	pglobalRecord globals;
+
+	int le;	// local errorcode
+	if (errcode == NULL) errcode = &le;
+	*errcode = DSS_SUCCESS;
+
+	// create a new one
+	globals = lua_newuserdata(L, sizeof(pglobalRecord));
+	if (globals == NULL) *errcode = DSS_ERR_OUT_OF_MEMORY;	// alloc failed
+
+	if (*errcode == DSS_SUCCESS) 
+	{
+		// now setup UDP port and status
+		(*globals).udpport = 0;
+		(*globals).DSS_status = DSS_STATUS_STOPPED;
+
+		// setup data queue
+		if (DSS_mutexInit((*globals).lock) != 0) *errcode = DSS_ERR_INIT_MUTEX_FAILED;
+	}
+
+	if (*errcode == DSS_SUCCESS)
+	{
+		(*globals).QueueCount = 0;
+		(*globals).QueueEnd = NULL;
+		(*globals).QueueStart = NULL;
+	}
+
+	if (*errcode != DSS_SUCCESS)	// we had an error
+	{
+		// report error, errcode contains details
+		return NULL;
+	}
+
+	// now add a garbagecollect metamethod and anchor it
+	luaL_getmetatable(L, DSS_GLOBALS_MT);	// get metatable with GC method
+	lua_setmetatable(L, -2);				// set it to the created userdata
+	lua_setfield(L, -1, DSS_GLOBALS_KEY);	// anchor the userdata
+
+	return globals;
+}
+
 // Gets the pointer to the structure with all LuaState related globals
 // that are to be kept outside the LuaState (to be accessible from the
 // async callbacks)
-// If the structure is not found, a new one is created and initialized.
 // Locking isn't necessary, as the structure is collected from/added to
 // the Lua_State, hence the calling code must already be single threaded.
 // returns NULL upon failure, use errcode for details.
-// provide errno may be NULL; possible errcode;
-// DSS_SUCCESS, DSS_ERR_OUT_OF_MEMORY, DSS_ERR_INIT_MUTEX_FAILED
+// provided errno may be NULL; possible errcode;
+// DSS_SUCCESS, DSS_ERR_NO_GLOBALS
 // see also DSS_getvalidglobals()
 static pglobalRecord DSS_getstateglobals(lua_State *L, int* errcode)
 {
@@ -55,60 +104,23 @@ static pglobalRecord DSS_getstateglobals(lua_State *L, int* errcode)
 	globals = lua_touserdata(L, -1);
 	lua_pop(L,1);
 
-	if (globals == NULL)
-	{
-		// Not found, create a new one
-		lua_pop(L, 1);	// pop the failed result
-		globals = lua_newuserdata(L, sizeof(pglobalRecord));
-		if (globals == NULL) *errcode = DSS_ERR_OUT_OF_MEMORY;	// alloc failed
-
-		if (*errcode == DSS_SUCCESS) 
-		{
-			// now setup UDP port and status
-			(*globals).udpport = 0;
-			(*globals).DSS_status = DSS_STATUS_STOPPED;
-
-			// setup data queue
-			if (DSS_mutexInit((*globals).lock) != 0) *errcode = DSS_ERR_INIT_MUTEX_FAILED;
-		}
-
-		if (*errcode == DSS_SUCCESS)
-		{
-			(*globals).QueueCount = 0;
-			(*globals).QueueEnd = NULL;
-			(*globals).QueueStart = NULL;
-		}
-
-		if (*errcode != DSS_SUCCESS)	// we had an error
-		{
-			// report error, errcode contains details
-			return NULL;
-		}
-
-		// now add a garbagecollect metamethod and anchor it
-		luaL_getmetatable(L, DSS_GLOBALS_MT);	// get metatable with GC method
-		lua_setmetatable(L, -2);				// set it to the created userdata
-		lua_setfield(L, -1, DSS_GLOBALS_KEY);	// anchor the userdata
-		
-	}
+	if (globals == NULL) *errcode = DSS_ERR_NO_GLOBALS;
 
 	return globals;
 }
 
 // checks global struct, returns 1 if valid, 0 otherwise
-// Locks the global record!
+// Caller should lock global record!!
 static int DSS_isvalidglobals(pglobalRecord g)
 {
 	int result = 1; // assume valid
-	if (g == NULL)
+	if (g == NULL)			// no use, caller should have locked, hence have checked NULL ....
 	{
 		result = 0;	// not valid
 	}
 	else 
 	{
-		DSS_mutexLock((*g).lock);
 		if  ((*g).DSS_status != DSS_STATUS_STARTED)	result = 0;	// not valid
-		DSS_mutexUnlock((*g).lock);
 	}
 	return result;
 }
@@ -118,11 +130,19 @@ static int DSS_isvalidglobals(pglobalRecord g)
 static pglobalRecord DSS_getvalidglobals(lua_State *L)
 {
 	pglobalRecord g = DSS_getstateglobals(L, NULL); // no errorcode required
-	if (DSS_isvalidglobals(g) == 0) 
+	if (g == NULL) 
 	{
 		// following error call will not return
 		luaL_error(L, "DSS was not started yet, or already stopped");
 	}
+	DSS_mutexLock((*g).lock);	
+	if (DSS_isvalidglobals(g) == 0) 
+	{
+		DSS_mutexUnlock((*g).lock);	
+		// following error call will not return
+		luaL_error(L, "DSS was not started yet, or already stopped");
+	}
+	DSS_mutexUnlock((*g).lock);	
 	return g;
 }
 
@@ -184,18 +204,26 @@ static int DSS_clearstateglobals(lua_State *L)
 ** Queue management functions
 ** ===============================================================
 */
-// Push item in the queue
+// Push item in the queue (will NOT lock utils nor globals)
 // Returns number of items in queue, or DSS_ERR_OUT_OF_MEMORY or 
 // DSS_ERR_NOTSTARTED if it failed
 static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData)
 {
 	int cnt;
 	pqueueItem pqi = NULL;
-	pglobalRecord globals = (*utilid).pGlobals;	// TODO: this one seems unsafe
-	if (DSS_isvalidglobals(globals) == 0) return DSS_ERR_NOT_STARTED;
+	pglobalRecord globals; 
+	
+	globals = (*utilid).pGlobals;		// grab globals
+
+	if (DSS_isvalidglobals(globals) == 0) 
+	{
+		return DSS_ERR_NOT_STARTED;
+	}
 
 	if (NULL == (pqi = malloc(sizeof(queueItem))))
+	{
 		return DSS_ERR_OUT_OF_MEMORY;	// exit, memory alloc failed
+	}
 
 	(*pqi).utilid = utilid;
 	(*pqi).pDecode = pDecode;
@@ -203,7 +231,6 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData
 	(*pqi).pNext = NULL;
 	(*pqi).pPrevious = NULL;
 
-	DSS_mutexLock((*globals).lock);
 	if ((*globals).QueueStart == NULL)
 	{
 		// first item in queue
@@ -219,12 +246,11 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData
 	}
 	(*globals).QueueCount += 1;
 	cnt = (*globals).QueueCount;
-	DSS_mutexUnlock((*globals).lock);
 
 	return cnt;
 }
 
-// Pop item from the queue, without locking; caller must lock!
+// Pop item from the queue, without locking; caller must lock globals!
 // Returns queueItem filled, or all NULLs if none available
 // utilid is id of utility for which to return, or NULL to
 // just return the oldest item, independent of a utilid
@@ -292,7 +318,7 @@ static queueItem queuePop(pglobalRecord globals, putilRecord utilid)
 ** ===============================================================
 */
 // Changes the UDP port number in use
-// uses the lock on the globals
+// uses the lock on the globals, will only be called from Lua
 static void setUDPPort (pglobalRecord globals, int newPort)
 {
 	DSS_mutexLock((*globals).lock);
@@ -314,7 +340,7 @@ static void setUDPPort (pglobalRecord globals, int newPort)
 ** ===============================================================
 */
 // check utildid against list, 1 if it exists, 0 if not
-// Locking must be done by caller!
+// Locking utillock must be done by caller!
 static int DSS_validutil(putilRecord utilid)
 {
 	putilRecord id = UtilStart;	// start at top
@@ -341,7 +367,7 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void*
 		return DSS_ERR_INVALID_UTILID;
 	}
 
-	globals = (*utilid).pGlobals;	// TODO: should lock before accessing pGlobals!! check others as well! 		DSS_mutexLock(utillock);
+	globals = (*utilid).pGlobals;	
 	DSS_mutexLock((*globals).lock);
 	DSS_mutexUnlock(utillock);
 	if ((*globals).DSS_status != DSS_STATUS_STARTED)
@@ -370,7 +396,7 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void*
 			(*globals).socket = DSS_socketNew((*globals).udpport); 
 			if (DSS_socketSend((*globals).socket, buff) == 0)
 			{
-				result = DSS_ERR_UDP_SEND_FAILED;		// report failure
+				result = DSS_ERR_UDP_SEND_FAILED;	// store failure to report
 			}
 		}
 	}
@@ -404,7 +430,7 @@ static void* DSS_getdata_1v0(putilRecord utilid, int* errcode)
 }
 
 // Sets the data associated with the Utility
-// Note; invalid utildid is ignored silently
+// Return DSS_SUCCESS or DSS_ERR_INVALID_UTILID
 static int DSS_setdata_1v0(putilRecord utilid, void* pData)
 {
 	int result = DSS_SUCCESS;
@@ -421,10 +447,12 @@ static int DSS_setdata_1v0(putilRecord utilid, void* pData)
 	return result;
 }
 
-// return NULL upon failure
+// Gets then utilid based on a LuaState and libid
+// return NULL upon failure, see Errcode for details; DSS_SUCCESS,
+// DSS_ERR_NOT_STARTED or DSS_ERR_INVALID_UTILID
 static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 {
-	pglobalRecord globals = DSS_getvalidglobals(L);
+	pglobalRecord globals = DSS_getstateglobals(L, NULL);
 	putilRecord utilid = NULL;
 
 	int le;	// local errorcode
@@ -433,6 +461,15 @@ static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 
 	if (globals != NULL)
 	{
+		DSS_mutexLock((*globals).lock);
+		if ((*globals).DSS_status != DSS_STATUS_STARTED)
+		{
+			DSS_mutexUnlock((*globals).lock);
+			*errcode = DSS_ERR_NOT_STARTED;
+			return NULL;
+		}
+		DSS_mutexUnlock((*globals).lock);
+
 		// we've got a set of globals, now compare this to the utillist
 		DSS_mutexLock(utillock);
 		utilid = UtilStart;
@@ -472,24 +509,32 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 {
 	putilRecord util;
 	putilRecord last;
-	pglobalRecord globals = DSS_getvalidglobals(L); // will not return on failure 
+	pglobalRecord globals; 
 
 	int le;	// local errorcode
 	if (errcode == NULL) errcode = &le;
 	*errcode = DSS_SUCCESS;
 
+	if (pCancel == NULL)
+	{
+		*errcode = DSS_ERR_NO_CANCEL_PROVIDED;
+		return NULL; 
+	}
+
+	globals = DSS_getstateglobals(L, NULL); 
+	if (globals == NULL)
+	{
+		*errcode = DSS_ERR_NOT_STARTED;
+		return NULL;
+	}
+
 	DSS_mutexLock(utillock);
+	DSS_mutexLock((*globals).lock);
 	if ((*globals).DSS_status != DSS_STATUS_STARTED)
 	{
 		// DSS isn't running
 		*errcode = DSS_ERR_NOT_STARTED;
-		DSS_mutexUnlock(utillock);
-		return NULL; 
-	}
-
-	if (pCancel == NULL)
-	{
-		*errcode = DSS_ERR_NO_CANCEL_PROVIDED;
+		DSS_mutexUnlock((*globals).lock);
 		DSS_mutexUnlock(utillock);
 		return NULL; 
 	}
@@ -498,6 +543,7 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 	util = malloc(sizeof(utilRecord));
 	if (util == NULL) 
 	{
+		DSS_mutexUnlock((*globals).lock);
 		DSS_mutexUnlock(utillock);
 		*errcode = DSS_ERR_OUT_OF_MEMORY;
 		return NULL; //DSS_ERR_OUT_OF_MEMORY;
@@ -524,6 +570,7 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 		(*util).pPrevious = last;
 	}
 
+	DSS_mutexUnlock((*globals).lock);
 	DSS_mutexUnlock(utillock);
 	return util;
 }
@@ -606,13 +653,14 @@ static int L_getport (lua_State *L)
 // Lua function to get the next item from the queue, its decode
 // function will be called to do what needs to be done
 // returns: queuesize of remaining items
+//TODO: return multiple args, first =count, remainder by backgroundworker; requires some guidelines....
 static int L_poll(lua_State *L)
 {
 	pglobalRecord globals = DSS_getvalidglobals(L); // won't return on error
 	int cnt = 0;
 	queueItem qi;
 
-	// lockup and collect data and count at same time
+	// lock and collect data and count at same time
 	DSS_mutexLock((*globals).lock);
 	qi = queuePopUnlocked(globals, DSS_LASTITEM);
 	cnt = (*globals).QueueCount;
@@ -667,13 +715,18 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 
 	// get or create the stateglobals
 	globals = DSS_getstateglobals(L, &errcode);
-	if (errcode != DSS_SUCCESS)
+	if (errcode == DSS_ERR_NO_GLOBALS)
 	{
-		if (errcode == DSS_ERR_OUT_OF_MEMORY)
-			return luaL_error(L, "Out of memory: DSS failed to create a global data structure for the LuaState");
-		if (errcode == DSS_ERR_INIT_MUTEX_FAILED)
-			return luaL_error(L, "Mutex init failed: DSS failed to create a global data structure for the LuaState");
-		return luaL_error(L, "Unknown error occured while trying to create a global data structure for the LuaState");
+		// this is expected ! there shouldn't be a record yet on startup
+		globals = DSS_newstateglobals(L, &errcode);	// create a new one
+		if (errcode != DSS_SUCCESS)
+		{
+			if (errcode == DSS_ERR_OUT_OF_MEMORY)
+				return luaL_error(L, "Out of memory: DSS failed to create a global data structure for the LuaState");
+			if (errcode == DSS_ERR_INIT_MUTEX_FAILED)
+				return luaL_error(L, "Mutex init failed: DSS failed to create a global data structure for the LuaState");
+			return luaL_error(L, "Unknown error occured while trying to create a global data structure for the LuaState");
+		}
 	}
 	(*globals).DSS_status = DSS_STATUS_STARTED;
 

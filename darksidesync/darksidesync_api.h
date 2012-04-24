@@ -123,4 +123,5 @@ typedef struct DSS_api_1v0_s {
 #define DSS_ERR_NO_CANCEL_PROVIDED -5	// When registering the cancel method is required
 #define DSS_ERR_OUT_OF_MEMORY -6		// memory allocation failed
 #define DSS_ERR_INIT_MUTEX_FAILED -7	// initialization of mutex failed
+#define DSS_ERR_NO_GLOBALS -8			// LuaState does not have a global record
 #endif /* darksidesync_api_h */
