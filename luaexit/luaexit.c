@@ -7,7 +7,6 @@
 #include "darksidesync_aux.c"
 
 static volatile int CallbackReference = LUA_NOREF;
-static pDSS_api_1v0_t DSS_API = NULL;
 static void* DSSutilid;
 
 // TODO: for windows implement the following;
@@ -19,16 +18,17 @@ static void* DSSutilid;
 ** Signal handling code
 ** ===============================================================
 */
-	void DSScancel()
+	void DSScancel(void* utilid, void* pData)
 	{
 		// todo: implement
+		(*DSSapi).unreg(utilid);
 	}
 
 	// Decodes data and puts it on the Lua stack
 	// pData is always NULL in this case, because we only handle
 	// SIGTERM & SIGINT signal, so push constant string
 	// @returns; as with Lua function, return number of args on the stack to return
-	int signalDecoder (lua_State *L, void *pData)
+	int signalDecoder (lua_State *L, void *pData, void *utilid)
 	{
 		if (L == NULL)
 		{
@@ -53,10 +53,12 @@ static void* DSSutilid;
 	
 	void signalHandler(int sigNum)
 	{
+		DSS_decoder_1v0_t DecodeFunc;
 		signal(sigNum, SIG_IGN);	// Temporarily ignore signals
 
+		DecodeFunc = &signalDecoder;
 		// deliver signal to DarkSideSync, no data included
-		(*DSS_API).deliver(DSSutilid, &signalDecoder, NULL); // TODO: this is probably not safe in a signal handler!!!!!
+		(*DSSapi).deliver(DSSutilid, DecodeFunc, NULL); // TODO: this is probably not safe in a signal handler!!!!!
 		
 		signal(sigNum, signalHandler); // Set handler again
 	}
@@ -119,9 +121,12 @@ static void* DSSutilid;
 
 EXPORT_API	int luaopen_luaexit(lua_State *L){
 
+		DSS_cancel_1v0_t CancelFunc = &DSScancel;
+
 		// First initialize the DSS client structure
-		DSS_API = DSS_initialize(L, DSS_API_1v0_KEY);	// get API struct
-		DSSutilid = (*DSS_API).reg(&DSScancel);			// register myself
+		DSS_initialize(L, CancelFunc);		// initialize and get API struct
+		//TODO: Warning: statement below gets the utilID as static! can't use lib in more than 1 luastate
+		DSSutilid = (*DSSapi).getutilid(L, DSS_LibID, NULL);
 
 		luaL_register(L,"luaexit",LuaExit);
 

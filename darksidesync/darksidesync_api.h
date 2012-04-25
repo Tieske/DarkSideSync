@@ -79,7 +79,7 @@ typedef int (*DSS_setdata_1v0_t) (void* utilid, void* pData);
 // having to explcitly manage utilid's across different LuaStates.
 // @arg1; LuaState pointer, this identifies a unique LuaState
 // @arg2; libid, generic pointer as an ID to a library (ID is shared across LuaStates)
-// @arg3; int pointer that will receive the error code DSS_ERR_INVALID_UTILID,
+// @arg3; int pointer that will receive the error code DSS_ERR_UNKNOWN_LIB,
 // DSS_ERR_NOT_STARTED or DSS_SUCCESS if no error (param may be NULL)
 // Returns: utilid, the ID that uniqueliy identifies the combination of a 
 // LuaState and a background worker, or NULL upon failure (check errcode).
@@ -130,4 +130,5 @@ typedef struct DSS_api_1v0_s {
 #define DSS_ERR_OUT_OF_MEMORY -6		// memory allocation failed
 #define DSS_ERR_INIT_MUTEX_FAILED -7	// initialization of mutex failed
 #define DSS_ERR_NO_GLOBALS -8			// LuaState does not have a global record
+#define DSS_ERR_UNKNOWN_LIB -9			// The library requesting its utildid is unregistered
 #endif /* darksidesync_api_h */

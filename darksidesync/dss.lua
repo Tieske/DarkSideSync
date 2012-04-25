@@ -42,18 +42,22 @@ local sockethandler = function(skt)
     skt:receive(8192)   -- size not optional if using copas, add it to be sure
     -- now call poll() to collect the actual data in a new table with values
     local values = { darksidesync.poll() }  -- catch return values in a table
-    local cb = values[1] -- get the callback, always the first argument
-    if cb then
-        if type(cb) ~= "function" then
-            print ("error: the first argument returned should have been a lua function!")
-        else
-            -- now call the callback with the other arguments as parameters, in a protected (pcall) mode
-            if not pcall(unpack(values)) then
-                print ("error: callback function had an error")
+    if values[1] == -1 then
+        -- there was nothing in the queue, nothing was executed
+    else
+        table.remove(values, 1) -- drop queuecount
+        local cb = values[1] -- get the callback, always the first argument
+        if cb then
+            if type(cb) ~= "function" then
+                print ("error: the first argument returned should have been a lua function!")
+            else
+                -- now call the callback with the other arguments as parameters, in a protected (pcall) mode
+                if not pcall(unpack(values)) then
+                    print ("error: callback function had an error")
+                end
             end
         end
     end
-
 end
 
 -- define module table

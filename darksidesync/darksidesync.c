@@ -449,7 +449,7 @@ static int DSS_setdata_1v0(putilRecord utilid, void* pData)
 
 // Gets then utilid based on a LuaState and libid
 // return NULL upon failure, see Errcode for details; DSS_SUCCESS,
-// DSS_ERR_NOT_STARTED or DSS_ERR_INVALID_UTILID
+// DSS_ERR_NOT_STARTED or DSS_ERR_UNKNOWN_LIB
 static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 {
 	pglobalRecord globals = DSS_getstateglobals(L, NULL);
@@ -494,7 +494,7 @@ static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 		return NULL;
 	}
 	// we had globals, failed anyway, so no valid utilid
-	*errcode = DSS_ERR_INVALID_UTILID;
+	*errcode = DSS_ERR_UNKNOWN_LIB;
 	return NULL;	// failed
 }
 
@@ -653,6 +653,7 @@ static int L_getport (lua_State *L)
 // Lua function to get the next item from the queue, its decode
 // function will be called to do what needs to be done
 // returns: queuesize of remaining items, followed by any stuff left by decoder
+// or -1 if there was nothing on the queue to begin with.
 static int L_poll(lua_State *L)
 {
 	pglobalRecord globals = DSS_getvalidglobals(L); // won't return on error
@@ -680,7 +681,7 @@ static int L_poll(lua_State *L)
 	else
 	{
 		// push queue count as return value
-		lua_pushinteger(L, cnt);	// return current queue size
+		lua_pushinteger(L, -1);	// return -1 to indicate queue was empty when called
 		return 1;	// 1 return argument
 	}
 };
