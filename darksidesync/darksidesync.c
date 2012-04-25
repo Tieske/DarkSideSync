@@ -652,12 +652,12 @@ static int L_getport (lua_State *L)
 
 // Lua function to get the next item from the queue, its decode
 // function will be called to do what needs to be done
-// returns: queuesize of remaining items
-//TODO: return multiple args, first =count, remainder by backgroundworker; requires some guidelines....
+// returns: queuesize of remaining items, followed by any stuff left by decoder
 static int L_poll(lua_State *L)
 {
 	pglobalRecord globals = DSS_getvalidglobals(L); // won't return on error
 	int cnt = 0;
+	int res = 0;
 	queueItem qi;
 
 	// lock and collect data and count at same time
@@ -666,17 +666,23 @@ static int L_poll(lua_State *L)
 	cnt = (*globals).QueueCount;
 	DSS_mutexUnlock((*globals).lock);
 
+	lua_settop(L, 0);		// clear stack
 	if (qi.pDecode != NULL)
 	{
 		// Call the decoder function with the data provided
-		qi.pDecode(L, qi.pData, qi.utilid);
+		res = qi.pDecode(L, qi.pData, qi.utilid);
 		qi.pData = NULL;
+		lua_checkstack(L, 1);
+		lua_pushinteger(L, cnt);	// add count to results
+		lua_insert(L,1);			// move count to 1st position
+		return (res + 1);			// 1 more result than the decode function delivered
 	}
-
-	// push queue count as return value
-	lua_pushinteger(L, cnt);	// return current queue size
-
-	return 1;	// 1 return argument
+	else
+	{
+		// push queue count as return value
+		lua_pushinteger(L, cnt);	// return current queue size
+		return 1;	// 1 return argument
+	}
 };
 
 /*

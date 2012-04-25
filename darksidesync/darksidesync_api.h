@@ -22,7 +22,13 @@
 // @arg2; the pData previously delivered. 
 // @arg3;  the unique utility ID for which the call is being made (in case
 // the utility has been 'required' in multiple parallel lua states)
-typedef void (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* utilid);
+// Returns; similar to Lua functions, the number of results on the stack.
+// NOTE: the intent is that the decode function handles everything and returns
+//       nothing on the Lua stack. In some cases, when callbacks have to be made
+//       from Lua instead of from C, results can be returned on the stack.
+//       As a guideline; the first value should be the callback function to be
+//       called, with the remaining values as parameters.
+typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* utilid);
 
 // The backgroundworker must provide this function. A pointer
 // to this method should be provided when calling the DSS_register function.
