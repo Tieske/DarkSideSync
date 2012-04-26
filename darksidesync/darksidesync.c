@@ -16,6 +16,43 @@ void setUDPPort (pglobalRecord globals, int newPort);
 
 //TODO minor:access the global should check on its metatable? is on registry, cannot modify from Lua, so is it an issue??
 
+#ifdef _DEBUG
+//can be found here  http://www.lua.org/pil/24.2.3.html
+static void stackDump (lua_State *L, const char *text) {
+      int i;
+      int top = lua_gettop(L);
+	  if (text == NULL)
+		printf("--------Start Dump------------\n");
+	  else
+	    printf("--------Start %s------------\n", text);
+      for (i = 1; i <= top; i++) {  /* repeat for each level */
+        int t = lua_type(L, i);
+        switch (t) {
+    
+          case LUA_TSTRING:  /* strings */
+            printf("`%s'", lua_tostring(L, i));
+            break;
+    
+          case LUA_TBOOLEAN:  /* booleans */
+            printf(lua_toboolean(L, i) ? "true" : "false");
+            break;
+    
+          case LUA_TNUMBER:  /* numbers */
+            printf("%g", lua_tonumber(L, i));
+            break;
+    
+          default:  /* other values */
+            printf("%s", lua_typename(L, t));
+            break;
+    
+        }
+        printf("  ");  /* put a separator */
+      }
+      printf("\n");  /* end the listing */
+	  printf("--------End Dump------------\n");
+    }
+#endif
+
 /*
 ** ===============================================================
 ** Utility and globals registration functions
@@ -47,13 +84,14 @@ static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
 	*errcode = DSS_SUCCESS;
 
 	// create a new one
-	globals = lua_newuserdata(L, sizeof(pglobalRecord));
+	globals = lua_newuserdata(L, sizeof(globalRecord));
 	if (globals == NULL) *errcode = DSS_ERR_OUT_OF_MEMORY;	// alloc failed
 
 	if (*errcode == DSS_SUCCESS) 
 	{
 		// now setup UDP port and status
 		(*globals).udpport = 0;
+		(*globals).socket = DSS_socketNew((*globals).udpport);
 		(*globals).DSS_status = DSS_STATUS_STOPPED;
 
 		// setup data queue
@@ -76,7 +114,7 @@ static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
 	// now add a garbagecollect metamethod and anchor it
 	luaL_getmetatable(L, DSS_GLOBALS_MT);	// get metatable with GC method
 	lua_setmetatable(L, -2);				// set it to the created userdata
-	lua_setfield(L, -1, DSS_GLOBALS_KEY);	// anchor the userdata
+	lua_setfield(L, LUA_REGISTRYINDEX, DSS_GLOBALS_KEY);	// anchor the userdata
 
 	return globals;
 }
@@ -705,6 +743,7 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 
 	if (DSS_initialized == NULL)  // TODO: first initialization of first mutex, this is unsafe! how to make it safe?
 	{
+		DSS_initialized = &DSS_initialized;	// point to itself, no longer NULL
 		if (DSS_mutexInit(utillock) != 0)
 		{
 			// an error occured while initializing the 2 global mutexes
@@ -719,6 +758,22 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 		}
 		DSS_mutexUnlock(utillock);
 	}
+
+	// Initializes API structure for API 1.0
+	DSS_api_1v0.version = DSS_API_1v0_KEY;
+	DSS_api_1v0.reg = &DSS_register_1v0;
+	DSS_api_1v0.getutilid = &DSS_getutilid_1v0;
+	DSS_api_1v0.deliver = &DSS_deliver_1v0;
+	DSS_api_1v0.getdata = &DSS_getdata_1v0;
+	DSS_api_1v0.setdata = &DSS_setdata_1v0;
+	DSS_api_1v0.unreg = &DSS_unregister_1v0;
+
+	// Create a metatable to GC the global data upon exit
+	luaL_newmetatable(L, DSS_GLOBALS_MT);
+	lua_pushstring(L, "__gc");
+	lua_pushcfunction(L, &DSS_clearstateglobals);
+	lua_settable(L, -3);
+	lua_pop(L,1);
 
 	// get or create the stateglobals
 	globals = DSS_getstateglobals(L, &errcode);
@@ -736,22 +791,6 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 		}
 	}
 	(*globals).DSS_status = DSS_STATUS_STARTED;
-
-	// Initializes API structure for API 1.0
-	DSS_api_1v0.version = DSS_API_1v0_KEY;
-	DSS_api_1v0.reg = &DSS_register_1v0;
-	DSS_api_1v0.getutilid = &DSS_getutilid_1v0;
-	DSS_api_1v0.deliver = &DSS_deliver_1v0;
-	DSS_api_1v0.getdata = &DSS_getdata_1v0;
-	DSS_api_1v0.setdata = &DSS_setdata_1v0;
-	DSS_api_1v0.unreg = &DSS_unregister_1v0;
-
-	// Create a metatable to GC the global data upon exit
-	luaL_newmetatable(L, DSS_GLOBALS_MT);
-	lua_pushstring(L, "__gc");
-	lua_pushcfunction(L, DSS_clearstateglobals);
-	lua_settable(L, -3);
-	lua_pop(L,1);
 
 	// Store pointer to my api structure in the Lua registry
 	// for backgroundworkers to collect there

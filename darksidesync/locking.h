@@ -4,11 +4,9 @@
 #ifdef WIN32
 	#include <windows.h>
 	#define DSS_mutex_t HANDLE
-	#define DSS_MUTEX_INITIALIZER
 #else  // Unix
 	#include <pthread.h>
 	#define DSS_mutex_t pthread_mutex_t
-	#define DSS_MUTEX_INITIALIZER
 #endif
 
 int DSS_mutexInit(DSS_mutex_t m);

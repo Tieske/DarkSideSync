@@ -64,7 +64,7 @@ typedef struct qItem {
 // (which cannot call into lua to collect global data there)
 typedef struct stateGlobals {
 		DSS_mutex_t lock;					// lock to protect struct data
-		int volatile udpport;				// 0 = no nitfication
+		int volatile udpport;				// 0 = no notification
 		DSS_socket_t socket;				// structure with socket data
 		int volatile DSS_status;			// Status of library
 		// Elements for the async data queue

@@ -57,6 +57,7 @@ void DSS_socketClose(DSS_socket_t s)
 DSS_socket_t DSS_socketNew(int port)
 {
 	DSS_socket_t s;
+	struct hostent *hp;
 	s.udpsock = INVALID_SOCKET;
 
 	if (port != 0)
@@ -77,10 +78,10 @@ DSS_socket_t DSS_socketNew(int port)
 			s.receiver_addr.sin_port = htons(port);
 
 			/* Get localhost address */
-			s.hp = gethostbyname(DSS_TARGET);
+			hp = gethostbyname(DSS_TARGET);
 
 			/* Check for NULL pointer */
-			if (s.hp == NULL)
+			if (hp == NULL)
 			{
 				closesocket(s.udpsock);
 				s.udpsock = INVALID_SOCKET;
@@ -88,10 +89,10 @@ DSS_socket_t DSS_socketNew(int port)
 			}
 
 			/* Set target address */
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b1 = s.hp->h_addr_list[0][0];
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b2 = s.hp->h_addr_list[0][1];
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b3 = s.hp->h_addr_list[0][2];
-			s.receiver_addr.sin_addr.S_un.S_un_b.s_b4 = s.hp->h_addr_list[0][3];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b1 = hp->h_addr_list[0][0];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b2 = hp->h_addr_list[0][1];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b3 = hp->h_addr_list[0][2];
+			s.receiver_addr.sin_addr.S_un.S_un_b.s_b4 = hp->h_addr_list[0][3];
 
 		#else
 
@@ -104,8 +105,8 @@ DSS_socket_t DSS_socketNew(int port)
 
 			// lookup 'localhost' 
 			s.receiver_addr.sin_family = AF_INET;
-			s.hp = gethostbyname(DSS_TARGET);
-			if (s.hp == 0)
+			hp = gethostbyname(DSS_TARGET);
+			if (hp == 0)
 			{
 				// unkown host
 				close(s.udpsock);
@@ -114,9 +115,9 @@ DSS_socket_t DSS_socketNew(int port)
 			}
 
 			// Set server and port
-			bcopy((char *)s.hp->h_addr, 
+			bcopy((char *)hp->h_addr, 
 				(char *)&s.receiver_addr.sin_addr,
-				s.hp->h_length);
+				hp->h_length);
 			s.receiver_addr.sin_port = htons(port);
 
 		#endif

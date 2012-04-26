@@ -19,7 +19,6 @@ typedef struct DSS_socket {
 	#else  // Unix
 		int udpsock;	
 	#endif
-	struct hostent *hp;
 	struct sockaddr_in receiver_addr;
 } DSS_socket_t;
 
