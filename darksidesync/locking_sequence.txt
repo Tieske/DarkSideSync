@@ -41,3 +41,12 @@ Verify the utilid, then collect the global record. Lock the record using its
 own lock, only then release the utillock. Do the reading/writing and unlock 
 when done.
 
+Lua registry globals;
+====================
+Registry
+ |
+ +- [DSS_REGISTRY_NAME]		(table)			Table with DSS api structs
+ |   +- [DSS_VERSION_KEY]	(string)		DSS version
+ |   +- [DSS_API_1v0_KEY]	(lightuserdata)	Pointer (type: pDSS_api_1v0_t) to api struct
+ +- [DSS_GLOBALS_KEY]		(userdata)		Global DSS data per LuaState
+ +- [DSS_GLOBALS_MT]		(table)			Metatable with __gc() for userdata cleanup

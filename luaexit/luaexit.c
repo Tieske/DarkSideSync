@@ -13,15 +13,35 @@ static void* DSSutilid;
 // SetConsoleCtrlHandler http://msdn.microsoft.com/en-us/library/windows/desktop/ms686016(v=vs.85).aspx
 // RegisterServiceCtrlHandler http://msdn.microsoft.com/en-us/library/windows/desktop/ms685054(v=vs.85).aspx
 
+// forward definitions
+int L_stop (lua_State *L);
+
 /*
 ** ===============================================================
 ** Signal handling code
 ** ===============================================================
 */
+
+	// GC procedure to cleanup stuff
+
+	static int LuaExit_exit(lua_State *L)
+	{
+#ifdef _DEBUG
+OutputDebugStringA("LuaExit: unloading started...\n");
+#endif
+
+		L_stop(L);
+		DSS_shutdown(L, NULL);
+		return 0;
+
+#ifdef _DEBUG
+OutputDebugStringA("LuaExit: unloading completed\n");
+#endif
+	}
+
 	void DSScancel(void* utilid, void* pData)
 	{
-		// todo: implement
-		(*DSSapi).unreg(utilid);
+		DSS_shutdown(NULL, utilid);
 	}
 
 	// Decodes data and puts it on the Lua stack
@@ -123,13 +143,30 @@ EXPORT_API	int luaopen_luaexit(lua_State *L){
 
 		DSS_cancel_1v0_t CancelFunc = &DSScancel;
 
+#ifdef _DEBUG
+OutputDebugStringA("LuaExit: Registering started...\n");
+#endif
+		// Create userdata
+		lua_newuserdata(L, sizeof(void*));
+		// Create a metatable to GC the global data upon exit
+		luaL_newmetatable(L, "LuaExit.gc");
+		lua_pushstring(L, "__gc");
+		lua_pushcfunction(L, &LuaExit_exit);
+		lua_settable(L, -3);
+		// now add a metatable to the userdata
+		lua_setmetatable(L, -2);				// set it to the created userdata
+		lua_setfield(L, LUA_REGISTRYINDEX, "LuaExit.userdata");	// anchor the userdata
+
+
 		// First initialize the DSS client structure
 		DSS_initialize(L, CancelFunc);		// initialize and get API struct
 		//TODO: Warning: statement below gets the utilID as static! can't use lib in more than 1 luastate
 		DSSutilid = (*DSSapi).getutilid(L, DSS_LibID, NULL);
 
 		luaL_register(L,"luaexit",LuaExit);
-
+#ifdef _DEBUG
+OutputDebugStringA("LuaExit: Registering completed\n");
+#endif
 		return 1;
 	};
 

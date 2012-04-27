@@ -1,14 +1,10 @@
 
 -- LUAEXIT tests
-print ("press enter...")
-io.read()
 
 -- darksidesync not loaded first, no delivery possibility
 --   call start before requiring darksidesync
 -- Expected; nil + error msg
 local dss = require("dss")
-print ("press enter... (again)")
-io.read()
 local luaexit, result, err
 luaexit = require('luaexit')
 result, err = luaexit.start(function() end)

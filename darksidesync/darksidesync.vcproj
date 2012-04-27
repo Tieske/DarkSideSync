@@ -184,6 +184,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\debug.lua"
+				>
+			</File>
+			<File
 				RelativePath=".\dss.lua"
 				>
 			</File>

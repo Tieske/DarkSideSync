@@ -192,6 +192,9 @@ static int DSS_clearstateglobals(lua_State *L)
 
 	globals = lua_touserdata(L, 1);		// first param is userdata to destroy
 
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: Unloading DSS ...\n");
+#endif
 	// Set status to stopping, registering and delivering will fail from here on
 	DSS_mutexLock((*globals).lock);
 	(*globals).DSS_status = DSS_STATUS_STOPPING;
@@ -217,8 +220,8 @@ static int DSS_clearstateglobals(lua_State *L)
 	DSS_mutexUnlock((*globals).lock);	
 
 	// Remove references from the registry
-	lua_pushnil(L);
-	lua_setfield(L, -1, DSS_GLOBALS_KEY);
+	//lua_pushnil(L);
+	//lua_setfield(L, -1, DSS_GLOBALS_KEY);
 	lua_pushnil(L);
 	lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
 
@@ -234,6 +237,9 @@ static int DSS_clearstateglobals(lua_State *L)
 		DSS_networkStop();
 	}
 	DSS_mutexUnlock(statelock);
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: Unloading DSS completed\n");
+#endif
 	return 0;
 }
 
@@ -595,7 +601,7 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 
 	// Add record to end of list
 	last = UtilStart;
-	while (last != NULL || (*last).pNext != NULL) last = (*last).pNext;
+	while (last != NULL && (*last).pNext != NULL) last = (*last).pNext;
 	if (last == NULL)
 	{
 		// first item
@@ -741,6 +747,10 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 	pglobalRecord globals;
 	int errcode;
 
+#ifdef _DEBUG
+OutputDebugStringA("DSS: Registering started...\n");
+#endif
+
 	if (DSS_initialized == NULL)  // TODO: first initialization of first mutex, this is unsafe! how to make it safe?
 	{
 		DSS_initialized = &DSS_initialized;	// point to itself, no longer NULL
@@ -815,6 +825,9 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 	DSS_mutexUnlock(statelock);
 
 	luaL_register(L,"darksidesync",DarkSideSync);
+#ifdef _DEBUG
+OutputDebugStringA("DSS: Registering completed\n");
+#endif
 	return 1;
 };
 

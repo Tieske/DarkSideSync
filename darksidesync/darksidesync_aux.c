@@ -62,3 +62,19 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 
 	return;
 }
+
+// at shutdown, this will safely unregister the library
+// use lua_State param if called from userdata __gc method
+// use utilid param if called from the DSS cancel() method
+// one param must be provided, lua_State has highest presedence
+static void DSS_shutdown(lua_State *L, void* utilid)
+{
+	if (DSSapi != NULL) 
+	{
+		// If we got a Lua state, go lookup our utilid
+		if (L != NULL) utilid = (*DSSapi).getutilid(L, DSS_LibID, NULL);
+		// Unregister
+		if (utilid != NULL) (*DSSapi).unreg(utilid);
+		DSSapi = NULL;
+	}
+}
