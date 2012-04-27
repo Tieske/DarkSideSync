@@ -10,14 +10,14 @@
 */
 
 // Initializes the mutex, returns 0 upon success, 1 otherwise
-int DSS_mutexInit(DSS_mutex_t m)
+int DSS_mutexInitx(DSS_mutex_t *m)
 {
 #ifdef WIN32
-	m = CreateMutex( 
+	*m = CreateMutex( 
 			NULL,              // default security attributes
 			FALSE,             // initially not owned
 			NULL);             // unnamed mutex
-	if (m == NULL)
+	if (*m == NULL)
 		return 1;
 	else
 		return 0;
@@ -28,30 +28,30 @@ int DSS_mutexInit(DSS_mutex_t m)
 }
 
 // Destroy mutex
-void DSS_mutexDestroy(DSS_mutex_t m)
+void DSS_mutexDestroyx(DSS_mutex_t *m)
 {
 #ifdef WIN32
-	CloseHandle(m);
+	CloseHandle(*m);
 #else
 	pthread_mutex_destroy(&m);
 #endif
 }
 
 // Locks a mutex
-void DSS_mutexLock(DSS_mutex_t m)
+void DSS_mutexLockx(DSS_mutex_t *m)
 {
 #ifdef WIN32
-	WaitForSingleObject(m, INFINITE);
+	WaitForSingleObject(*m, INFINITE);
 #else
 	pthread_mutex_lock(&m);
 #endif
 }
 
 // Unlocks a mutex
-void DSS_mutexUnlock(DSS_mutex_t m)
+void DSS_mutexUnlockx(DSS_mutex_t *m)
 {
 #ifdef WIN32
-	ReleaseMutex(m);
+	ReleaseMutex(*m);
 #else
 	pthread_mutex_unlock(&m);
 #endif
