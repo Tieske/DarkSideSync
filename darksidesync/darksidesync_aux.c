@@ -47,7 +47,7 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 	// Now register ourselves
 	// pData = NULL, because on errors the initialize function will not return
 	// and pData may leak resources, so set the pData after initializing.
-	(*DSSapi).reg(L, DSS_LibID, pCancel, NULL, &errcode);
+	DSSapi->reg(L, DSS_LibID, pCancel, NULL, &errcode);
 	if (errcode != DSS_SUCCESS)
 	{
 		DSSapi = NULL;
@@ -72,9 +72,9 @@ static void DSS_shutdown(lua_State *L, void* utilid)
 	if (DSSapi != NULL) 
 	{
 		// If we got a Lua state, go lookup our utilid
-		if (L != NULL) utilid = (*DSSapi).getutilid(L, DSS_LibID, NULL);
+		if (L != NULL) utilid = DSSapi->getutilid(L, DSS_LibID, NULL);
 		// Unregister
-		if (utilid != NULL) (*DSSapi).unreg(utilid);
+		if (utilid != NULL) DSSapi->unreg(utilid);
 		DSSapi = NULL;
 	}
 }

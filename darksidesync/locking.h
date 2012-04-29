@@ -9,9 +9,9 @@
 	#define DSS_mutex_t pthread_mutex_t
 #endif
 
-int DSS_mutexInit(DSS_mutex_t m);
-void DSS_mutexDestroy(DSS_mutex_t m);
-void DSS_mutexLock(DSS_mutex_t m);
-void DSS_mutexUnlock(DSS_mutex_t m);
+int DSS_mutexInitx(DSS_mutex_t* m);
+void DSS_mutexDestroyx(DSS_mutex_t* m);
+void DSS_mutexLockx(DSS_mutex_t* m);
+void DSS_mutexUnlockx(DSS_mutex_t* m);
 
 #endif  /* dss_locking_h */

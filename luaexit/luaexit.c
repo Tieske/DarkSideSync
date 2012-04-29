@@ -78,7 +78,7 @@ OutputDebugStringA("LuaExit: unloading completed\n");
 
 		DecodeFunc = &signalDecoder;
 		// deliver signal to DarkSideSync, no data included
-		(*DSSapi).deliver(DSSutilid, DecodeFunc, NULL); // TODO: this is probably not safe in a signal handler!!!!!
+		DSSapi->deliver(DSSutilid, DecodeFunc, NULL); // TODO: this is probably not safe in a signal handler!!!!!
 		
 		signal(sigNum, signalHandler); // Set handler again
 	}
@@ -161,7 +161,7 @@ OutputDebugStringA("LuaExit: Registering started...\n");
 		// First initialize the DSS client structure
 		DSS_initialize(L, CancelFunc);		// initialize and get API struct
 		//TODO: Warning: statement below gets the utilID as static! can't use lib in more than 1 luastate
-		DSSutilid = (*DSSapi).getutilid(L, DSS_LibID, NULL);
+		DSSutilid = DSSapi->getutilid(L, DSS_LibID, NULL);
 
 		luaL_register(L,"luaexit",LuaExit);
 #ifdef _DEBUG

@@ -12,7 +12,7 @@ static DSS_mutex_t statelock;						// lock to protect the state counter
 static DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
 
 // forward definitions
-void setUDPPort (pglobalRecord globals, int newPort);
+void setUDPPort (pglobalRecord g, int newPort);
 
 //TODO minor:access the global should check on its metatable? is on registry, cannot modify from Lua, so is it an issue??
 
@@ -61,12 +61,12 @@ static void stackDump (lua_State *L, const char *text) {
 // Returns 1 if the LuaState has a global struct, 0 otherwise
 static int DSS_hasstateglobals(lua_State *L)
 {
-	pglobalRecord globals;
+	pglobalRecord g;
 	// try and collect the globals userdata
 	lua_getfield(L, LUA_REGISTRYINDEX, DSS_GLOBALS_KEY);
-	globals = lua_touserdata(L, -1);
+	g = lua_touserdata(L, -1);
 	lua_pop(L,1);
-	if (globals == NULL) return 0;
+	if (g == NULL) return 0;
 	return 1;
 }
 
@@ -77,32 +77,32 @@ static int DSS_hasstateglobals(lua_State *L)
 // DSS_SUCCESS, DSS_ERR_OUT_OF_MEMORY, DSS_ERR_INIT_MUTEX_FAILED, DSS_ERR_NO_GLOBALS
 static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
 {
-	pglobalRecord globals;
+	pglobalRecord g;
 
 	int le;	// local errorcode
 	if (errcode == NULL) errcode = &le;
 	*errcode = DSS_SUCCESS;
 
 	// create a new one
-	globals = lua_newuserdata(L, sizeof(globalRecord));
-	if (globals == NULL) *errcode = DSS_ERR_OUT_OF_MEMORY;	// alloc failed
+	g = lua_newuserdata(L, sizeof(globalRecord));
+	if (g == NULL) *errcode = DSS_ERR_OUT_OF_MEMORY;	// alloc failed
 
 	if (*errcode == DSS_SUCCESS) 
 	{
 		// now setup UDP port and status
-		(*globals).udpport = 0;
-		(*globals).socket = DSS_socketNew((*globals).udpport);
-		(*globals).DSS_status = DSS_STATUS_STOPPED;
+		g->udpport = 0;
+		g->socket = DSS_socketNew(g->udpport);
+		g->DSS_status = DSS_STATUS_STOPPED;
 
 		// setup data queue
-		if (DSS_mutexInit((*globals).lock) != 0) *errcode = DSS_ERR_INIT_MUTEX_FAILED;
+		if (DSS_mutexInitx(&(g->lock)) != 0) *errcode = DSS_ERR_INIT_MUTEX_FAILED;
 	}
 
 	if (*errcode == DSS_SUCCESS)
 	{
-		(*globals).QueueCount = 0;
-		(*globals).QueueEnd = NULL;
-		(*globals).QueueStart = NULL;
+		g->QueueCount = 0;
+		g->QueueEnd = NULL;
+		g->QueueStart = NULL;
 	}
 
 	if (*errcode != DSS_SUCCESS)	// we had an error
@@ -116,10 +116,10 @@ static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
 	lua_setmetatable(L, -2);				// set it to the created userdata
 	lua_setfield(L, LUA_REGISTRYINDEX, DSS_GLOBALS_KEY);	// anchor the userdata
 
-	return globals;
+	return g;
 }
 
-// Gets the pointer to the structure with all LuaState related globals
+// Gets the pointer to the structure with all LuaState related g
 // that are to be kept outside the LuaState (to be accessible from the
 // async callbacks)
 // Locking isn't necessary, as the structure is collected from/added to
@@ -131,7 +131,7 @@ static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
 static pglobalRecord DSS_getstateglobals(lua_State *L, int* errcode)
 {
 
-	pglobalRecord globals;
+	pglobalRecord g;
 
 	int le;	// local errorcode
 	if (errcode == NULL) errcode = &le;
@@ -139,12 +139,12 @@ static pglobalRecord DSS_getstateglobals(lua_State *L, int* errcode)
 
 	// try and collect the globals userdata
 	lua_getfield(L, LUA_REGISTRYINDEX, DSS_GLOBALS_KEY);
-	globals = lua_touserdata(L, -1);
+	g = lua_touserdata(L, -1);
 	lua_pop(L,1);
 
-	if (globals == NULL) *errcode = DSS_ERR_NO_GLOBALS;
+	if (g == NULL) *errcode = DSS_ERR_NO_GLOBALS;
 
-	return globals;
+	return g;
 }
 
 // checks global struct, returns 1 if valid, 0 otherwise
@@ -158,7 +158,7 @@ static int DSS_isvalidglobals(pglobalRecord g)
 	}
 	else 
 	{
-		if  ((*g).DSS_status != DSS_STATUS_STARTED)	result = 0;	// not valid
+		if  (g->DSS_status != DSS_STATUS_STARTED)	result = 0;	// not valid
 	}
 	return result;
 }
@@ -173,51 +173,51 @@ static pglobalRecord DSS_getvalidglobals(lua_State *L)
 		// following error call will not return
 		luaL_error(L, "DSS was not started yet, or already stopped");
 	}
-	DSS_mutexLock((*g).lock);	
+	DSS_mutexLockx(&(g->lock));	
 	if (DSS_isvalidglobals(g) == 0) 
 	{
-		DSS_mutexUnlock((*g).lock);	
+		DSS_mutexUnlockx(&(g->lock));	
 		// following error call will not return
 		luaL_error(L, "DSS was not started yet, or already stopped");
 	}
-	DSS_mutexUnlock((*g).lock);	
+	DSS_mutexUnlockx(&(g->lock));	
 	return g;
 }
 
 // Garbage collect function for the global userdata
 static int DSS_clearstateglobals(lua_State *L)
 {
-	pglobalRecord globals;
+	pglobalRecord g;
 	putilRecord listend;
 
-	globals = lua_touserdata(L, 1);		// first param is userdata to destroy
+	g = lua_touserdata(L, 1);		// first param is userdata to destroy
 
 #ifdef _DEBUG
 	OutputDebugStringA("DSS: Unloading DSS ...\n");
 #endif
 	// Set status to stopping, registering and delivering will fail from here on
-	DSS_mutexLock((*globals).lock);
-	(*globals).DSS_status = DSS_STATUS_STOPPING;
-	DSS_mutexUnlock((*globals).lock);	// unlock to let any waiting threads move in (and fail, because we're stopping)
+	DSS_mutexLockx(&(g->lock));
+	g->DSS_status = DSS_STATUS_STOPPING;
+	DSS_mutexUnlockx(&(g->lock));	// unlock to let any waiting threads move in (and fail, because we're stopping)
 	
 
 	// cancel all utilities, in reverse order
-	DSS_mutexLock(utillock);
+	DSS_mutexLockx(&utillock);
 	while (UtilStart != NULL)
 	{
 		listend = UtilStart;
-		while ((*listend).pNext != NULL) listend = (*listend).pNext;
+		while (listend->pNext != NULL) listend = listend->pNext;
 
-		DSS_mutexUnlock(utillock);		// must unlock to let the cancel function succeed
-		(*listend).pCancel(listend, (*listend).pUtilData);	// call this utility's cancel method
-		DSS_mutexLock(utillock);		// lock again to get the next one
+		DSS_mutexUnlockx(&utillock);		// must unlock to let the cancel function succeed
+		listend->pCancel(listend, listend->pUtilData);	// call this utility's cancel method
+		DSS_mutexLockx(&utillock);		// lock again to get the next one
 	}
-	DSS_mutexUnlock(utillock);
+	DSS_mutexUnlockx(&utillock);
 	
 	// update status again, we're done stopping
-	DSS_mutexLock((*globals).lock);
-	(*globals).DSS_status = DSS_STATUS_STOPPED;
-	DSS_mutexUnlock((*globals).lock);	
+	DSS_mutexLockx(&(g->lock));
+	g->DSS_status = DSS_STATUS_STOPPED;
+	DSS_mutexUnlockx(&(g->lock));	
 
 	// Remove references from the registry
 	//lua_pushnil(L);
@@ -226,17 +226,18 @@ static int DSS_clearstateglobals(lua_State *L)
 	lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
 
 	// Close socket and destroy mutex
-	setUDPPort(globals, 0);  // set port to 0, will close socket
-	DSS_mutexDestroy((*globals).lock);
+	setUDPPort(g, 0);  // set port to 0, will close socket
+	DSS_mutexDestroyx(&(g->lock));
 
 	// Reduce state count and close network if none left
-	DSS_mutexLock(statelock);
+	DSS_mutexLockx(&statelock);
+	DSS_mutexLockx(&statelock);
 	statecount = statecount - 1;
 	if (statecount == 0)
 	{
 		DSS_networkStop();
 	}
-	DSS_mutexUnlock(statelock);
+	DSS_mutexUnlockx(&statelock);
 #ifdef _DEBUG
 	OutputDebugStringA("DSS: Unloading DSS completed\n");
 #endif
@@ -255,11 +256,11 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData
 {
 	int cnt;
 	pqueueItem pqi = NULL;
-	pglobalRecord globals; 
+	pglobalRecord g; 
 	
-	globals = (*utilid).pGlobals;		// grab globals
+	g = utilid->pGlobals;		// grab globals
 
-	if (DSS_isvalidglobals(globals) == 0) 
+	if (DSS_isvalidglobals(g) == 0) 
 	{
 		return DSS_ERR_NOT_STARTED;
 	}
@@ -269,27 +270,27 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData
 		return DSS_ERR_OUT_OF_MEMORY;	// exit, memory alloc failed
 	}
 
-	(*pqi).utilid = utilid;
-	(*pqi).pDecode = pDecode;
-	(*pqi).pData = pData;
-	(*pqi).pNext = NULL;
-	(*pqi).pPrevious = NULL;
+	pqi->utilid = utilid;
+	pqi->pDecode = pDecode;
+	pqi->pData = pData;
+	pqi->pNext = NULL;
+	pqi->pPrevious = NULL;
 
-	if ((*globals).QueueStart == NULL)
+	if (g->QueueStart == NULL)
 	{
 		// first item in queue
-		(*globals).QueueStart = pqi;
-		(*globals).QueueEnd = pqi;
+		g->QueueStart = pqi;
+		g->QueueEnd = pqi;
 	}
 	else
 	{
 		// append to queue
-		(*(*globals).QueueEnd).pNext = pqi;
-		(*pqi).pPrevious = (*globals).QueueEnd;
-		(*globals).QueueEnd = pqi;
+		g->QueueEnd->pNext = pqi;
+		pqi->pPrevious = g->QueueEnd;
+		g->QueueEnd = pqi;
 	}
-	(*globals).QueueCount += 1;
-	cnt = (*globals).QueueCount;
+	g->QueueCount += 1;
+	cnt = g->QueueCount;
 
 	return cnt;
 }
@@ -298,7 +299,7 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData
 // Returns queueItem filled, or all NULLs if none available
 // utilid is id of utility for which to return, or NULL to
 // just return the oldest item, independent of a utilid
-static queueItem queuePopUnlocked(pglobalRecord globals, putilRecord utilid)
+static queueItem queuePopUnlocked(pglobalRecord g, putilRecord utilid)
 {
 	pqueueItem qi;
 	queueItem result;
@@ -308,37 +309,37 @@ static queueItem queuePopUnlocked(pglobalRecord globals, putilRecord utilid)
 	result.pNext = NULL;
 	result.pPrevious = NULL;
 
-	if ((*globals).QueueStart != NULL)
+	if (g->QueueStart != NULL)
 	{
 
 		if (utilid == NULL)
 		{
 			// just grab the oldest from the queue
-			qi = (*globals).QueueStart;
+			qi = g->QueueStart;
 		}
 		else
 		{
 			// traverse backwards to find the last one with a corresponding utilid
-			qi = (*globals).QueueStart;
-			while (qi != NULL && (*qi).utilid != utilid)
+			qi = g->QueueStart;
+			while (qi != NULL && qi->utilid != utilid)
 			{
-				qi = (*qi).pPrevious;
+				qi = qi->pPrevious;
 			}
 		}
 
 		if (qi != NULL) 
 		{
-			result = (*qi);
+			result = *qi;
 			// dismiss item from linked list
-			if (qi == (*globals).QueueStart) (*globals).QueueStart = (*qi).pNext;
-			if (qi == (*globals).QueueEnd) (*globals).QueueEnd = (*qi).pPrevious;
-			if (result.pPrevious != NULL) (*result.pPrevious).pNext = result.pNext;
-			if (result.pNext != NULL) (*result.pNext).pPrevious = result.pPrevious;
+			if (qi == g->QueueStart) g->QueueStart = qi->pNext;
+			if (qi == g->QueueEnd) g->QueueEnd = qi->pPrevious;
+			if (result.pPrevious != NULL) result.pPrevious->pNext = result.pNext;
+			if (result.pNext != NULL) result.pNext->pPrevious = result.pPrevious;
 			free(qi);		// release queueItem memory
 			// cleanup results
 			result.pNext = NULL;
 			result.pPrevious = NULL;
-			(*globals).QueueCount -= 1;
+			g->QueueCount -= 1;
 		}
 	}
 
@@ -347,12 +348,12 @@ static queueItem queuePopUnlocked(pglobalRecord globals, putilRecord utilid)
 
 // Pop item from the queue (protected using locks)
 // see queuePopUnlocked()
-static queueItem queuePop(pglobalRecord globals, putilRecord utilid)
+static queueItem queuePop(pglobalRecord g, putilRecord utilid)
 {
 	queueItem result;
-	DSS_mutexLock((*globals).lock);
-	result = queuePopUnlocked(globals, utilid);
-	DSS_mutexUnlock((*globals).lock);
+	DSS_mutexLockx(&(g->lock));
+	result = queuePopUnlocked(g, utilid);
+	DSS_mutexUnlockx(&(g->lock));
 	return result;
 }
 
@@ -363,19 +364,19 @@ static queueItem queuePop(pglobalRecord globals, putilRecord utilid)
 */
 // Changes the UDP port number in use
 // uses the lock on the globals, will only be called from Lua
-static void setUDPPort (pglobalRecord globals, int newPort)
+static void setUDPPort (pglobalRecord g, int newPort)
 {
-	DSS_mutexLock((*globals).lock);
-	if ((*globals).udpport != 0)
+	DSS_mutexLockx(&(g->lock));
+	if (g->udpport != 0)
 	{
-		DSS_socketClose((*globals).socket); 
+		DSS_socketClose(g->socket); 
 	}
-	(*globals).udpport = newPort;
+	g->udpport = newPort;
 	if (newPort != 0)
 	{
-		(*globals).socket = DSS_socketNew(newPort);
+		g->socket = DSS_socketNew(newPort);
 	}
-	DSS_mutexUnlock((*globals).lock);
+	DSS_mutexUnlockx(&(g->lock));
 }
 
 /*
@@ -388,7 +389,7 @@ static void setUDPPort (pglobalRecord globals, int newPort)
 static int DSS_validutil(putilRecord utilid)
 {
 	putilRecord id = UtilStart;	// start at top
-	while ((id != NULL) && ((*id).pNext != utilid)) id = (*id).pNext;
+	while ((id != NULL) && (id->pNext != utilid)) id = id->pNext;
 	if (id == NULL) return 0;	// not found
 	return 1; // found it
 }
@@ -398,54 +399,54 @@ static int DSS_validutil(putilRecord utilid)
 // DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED, DSS_ERR_INVALID_UTILID
 static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData)
 {
-	pglobalRecord globals;
+	pglobalRecord g;
 	int result = DSS_SUCCESS;	// report success by default
 	int cnt;
 	char buff[20];
 
-	DSS_mutexLock(utillock);
+	DSS_mutexLockx(&utillock);
 	if (DSS_validutil(utilid) == 0)
 	{
 		// invalid ID
-		DSS_mutexUnlock(utillock);
+		DSS_mutexUnlockx(&utillock);
 		return DSS_ERR_INVALID_UTILID;
 	}
 
-	globals = (*utilid).pGlobals;	
-	DSS_mutexLock((*globals).lock);
-	DSS_mutexUnlock(utillock);
-	if ((*globals).DSS_status != DSS_STATUS_STARTED)
+	g = utilid->pGlobals;	
+	DSS_mutexLockx(&(g->lock));
+	DSS_mutexUnlockx(&utillock);
+	if (g->DSS_status != DSS_STATUS_STARTED)
 	{
 		// lib not started yet (or stopped already), exit
-		DSS_mutexUnlock((*globals).lock);
+		DSS_mutexUnlockx(&(g->lock));
 		return DSS_ERR_NOT_STARTED;
 	}
 
 	cnt = queuePush(utilid, pDecode, pData);	// Push it on the queue
 	if (cnt == DSS_ERR_OUT_OF_MEMORY) 
 	{
-		DSS_mutexUnlock((*globals).lock);
+		DSS_mutexUnlockx(&(g->lock));
 		return DSS_ERR_OUT_OF_MEMORY;
 	}
 
 	sprintf(buff, " %d", cnt);	// convert to string
 	
 	// Now send notification packet
-	if ((*globals).udpport != 0)
+	if (g->udpport != 0)
 	{
-		if (DSS_socketSend((*globals).socket, buff) == 0)
+		if (DSS_socketSend(g->socket, buff) == 0)
 		{
 			// sending failed, retry; close create new and do again
-			DSS_socketClose((*globals).socket);
-			(*globals).socket = DSS_socketNew((*globals).udpport); 
-			if (DSS_socketSend((*globals).socket, buff) == 0)
+			DSS_socketClose(g->socket);
+			g->socket = DSS_socketNew(g->udpport); 
+			if (DSS_socketSend(g->socket, buff) == 0)
 			{
 				result = DSS_ERR_UDP_SEND_FAILED;	// store failure to report
 			}
 		}
 	}
 
-	DSS_mutexUnlock((*globals).lock);
+	DSS_mutexUnlockx(&(g->lock));
 	return result;	
 };
 
@@ -459,17 +460,17 @@ static void* DSS_getdata_1v0(putilRecord utilid, int* errcode)
 	if (errcode == NULL) errcode = &le;
 	*errcode = DSS_SUCCESS;
 
-	DSS_mutexLock(utillock);	
+	DSS_mutexLockx(&utillock);	
 	if (DSS_validutil(utilid))
 	{
-		result = (*utilid).pUtilData;
+		result = utilid->pUtilData;
 	}
 	else
 	{
 		*errcode = DSS_ERR_INVALID_UTILID;
 		result = NULL;
 	}
-	DSS_mutexUnlock(utillock);
+	DSS_mutexUnlockx(&utillock);
 	return result;
 }
 
@@ -478,16 +479,16 @@ static void* DSS_getdata_1v0(putilRecord utilid, int* errcode)
 static int DSS_setdata_1v0(putilRecord utilid, void* pData)
 {
 	int result = DSS_SUCCESS;
-	DSS_mutexLock(utillock);	
+	DSS_mutexLockx(&utillock);	
 	if (DSS_validutil(utilid))
 	{
-		(*utilid).pUtilData = pData;
+		utilid->pUtilData = pData;
 	}
 	else
 	{
 		result = DSS_ERR_INVALID_UTILID;
 	}
-	DSS_mutexUnlock(utillock);
+	DSS_mutexUnlockx(&utillock);
 	return result;
 }
 
@@ -496,40 +497,40 @@ static int DSS_setdata_1v0(putilRecord utilid, void* pData)
 // DSS_ERR_NOT_STARTED or DSS_ERR_UNKNOWN_LIB
 static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 {
-	pglobalRecord globals = DSS_getstateglobals(L, NULL);
+	pglobalRecord g = DSS_getstateglobals(L, NULL);
 	putilRecord utilid = NULL;
 
 	int le;	// local errorcode
 	if (errcode == NULL) errcode = &le;
 	*errcode = DSS_SUCCESS;
 
-	if (globals != NULL)
+	if (g != NULL)
 	{
-		DSS_mutexLock((*globals).lock);
-		if ((*globals).DSS_status != DSS_STATUS_STARTED)
+		DSS_mutexLockx(&(g->lock));
+		if (g->DSS_status != DSS_STATUS_STARTED)
 		{
-			DSS_mutexUnlock((*globals).lock);
+			DSS_mutexUnlockx(&(g->lock));
 			*errcode = DSS_ERR_NOT_STARTED;
 			return NULL;
 		}
-		DSS_mutexUnlock((*globals).lock);
+		DSS_mutexUnlockx(&(g->lock));
 
 		// we've got a set of globals, now compare this to the utillist
-		DSS_mutexLock(utillock);
+		DSS_mutexLockx(&utillock);
 		utilid = UtilStart;
 		while (utilid != NULL)
 		{
-			if (((*utilid).pGlobals == globals) && ((*utilid).libid == libid))
+			if ((utilid->pGlobals == g) && (utilid->libid == libid))
 			{
 				//This utilid matches both the LuaState (globals) and the libid.
-				DSS_mutexUnlock(utillock);
+				DSS_mutexUnlockx(&utillock);
 				return utilid;	// found it, return and exit.
 			}
 
 			// No match, try next one in the list
-			utilid = (*utilid).pNext;
+			utilid = utilid->pNext;
 		}
-		DSS_mutexUnlock(utillock);
+		DSS_mutexUnlockx(&utillock);
 	}
 	else
 	{
@@ -553,7 +554,7 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 {
 	putilRecord util;
 	putilRecord last;
-	pglobalRecord globals; 
+	pglobalRecord g; 
 
 	int le;	// local errorcode
 	if (errcode == NULL) errcode = &le;
@@ -565,21 +566,21 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 		return NULL; 
 	}
 
-	globals = DSS_getstateglobals(L, NULL); 
-	if (globals == NULL)
+	g = DSS_getstateglobals(L, NULL); 
+	if (g == NULL)
 	{
 		*errcode = DSS_ERR_NOT_STARTED;
 		return NULL;
 	}
 
-	DSS_mutexLock(utillock);
-	DSS_mutexLock((*globals).lock);
-	if ((*globals).DSS_status != DSS_STATUS_STARTED)
+	DSS_mutexLockx(&utillock);
+	DSS_mutexLockx(&(g->lock));
+	if (g->DSS_status != DSS_STATUS_STARTED)
 	{
 		// DSS isn't running
 		*errcode = DSS_ERR_NOT_STARTED;
-		DSS_mutexUnlock((*globals).lock);
-		DSS_mutexUnlock(utillock);
+		DSS_mutexUnlockx(&(g->lock));
+		DSS_mutexUnlockx(&utillock);
 		return NULL; 
 	}
 
@@ -587,21 +588,21 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 	util = malloc(sizeof(utilRecord));
 	if (util == NULL) 
 	{
-		DSS_mutexUnlock((*globals).lock);
-		DSS_mutexUnlock(utillock);
+		DSS_mutexUnlockx(&(g->lock));
+		DSS_mutexUnlockx(&utillock);
 		*errcode = DSS_ERR_OUT_OF_MEMORY;
 		return NULL; //DSS_ERR_OUT_OF_MEMORY;
 	}
-	(*util).pCancel = pCancel;
-	(*util).pGlobals = globals;
-	(*util).pUtilData = pData;
-	(*util).libid = libid;
-	(*util).pNext = NULL;
-	(*util).pPrevious = NULL;
+	util->pCancel = pCancel;
+	util->pGlobals = g;
+	util->pUtilData = pData;
+	util->libid = libid;
+	util->pNext = NULL;
+	util->pPrevious = NULL;
 
 	// Add record to end of list
 	last = UtilStart;
-	while (last != NULL && (*last).pNext != NULL) last = (*last).pNext;
+	while (last != NULL && last->pNext != NULL) last = last->pNext;
 	if (last == NULL)
 	{
 		// first item
@@ -610,12 +611,12 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 	else
 	{
 		// append to list
-		(*last).pNext = util;
-		(*util).pPrevious = last;
+		last->pNext = util;
+		util->pPrevious = last;
 	}
 
-	DSS_mutexUnlock((*globals).lock);
-	DSS_mutexUnlock(utillock);
+	DSS_mutexUnlockx(&(g->lock));
+	DSS_mutexUnlockx(&utillock);
 	return util;
 }
 
@@ -625,35 +626,35 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 // returns DSS_SUCCESS, DSS_ERR_INVALID_UTILID
 static int DSS_unregister_1v0(putilRecord utilid)
 {
-	pglobalRecord globals;
+	pglobalRecord g;
 	queueItem qi;
 
-	DSS_mutexLock(utillock);
+	DSS_mutexLockx(&utillock);
 	if (DSS_validutil(utilid) == 0)
 	{
 		// invalid ID
-		DSS_mutexUnlock(utillock);
+		DSS_mutexUnlockx(&utillock);
 		return DSS_ERR_INVALID_UTILID;
 	}
-	globals = (*utilid).pGlobals;
+	g = utilid->pGlobals;
 
 	// remove it from the list
-	if (UtilStart == utilid) UtilStart = (*utilid).pNext;
-	if ((*utilid).pNext != NULL) (*(*utilid).pNext).pPrevious = (*utilid).pPrevious;
-	if ((*utilid).pPrevious != NULL) (*(*utilid).pPrevious).pNext = (*utilid).pNext;
+	if (UtilStart == utilid) UtilStart = utilid->pNext;
+	if (utilid->pNext != NULL) utilid->pNext->pPrevious = utilid->pPrevious;
+	if (utilid->pPrevious != NULL) utilid->pPrevious->pNext = utilid->pNext;
 
 	// cancel all items still in the queue
-	qi = queuePop(globals, utilid);
+	qi = queuePop(g, utilid);
 	while (qi.pDecode != NULL)
 	{
 		qi.pDecode(NULL, qi.pData, utilid);	// no LuaState, use NULL to indicate cancelling
-		qi = queuePop(globals, utilid);		// get next one
+		qi = queuePop(g, utilid);		// get next one
 	}
 	// free resources
 	free(utilid);
 
 	// Unlock, we're done with the util list
-	DSS_mutexUnlock(utillock);
+	DSS_mutexUnlockx(&utillock);
 	return DSS_SUCCESS;
 }
 
@@ -669,8 +670,8 @@ static int L_setport(lua_State *L)
 {
 	if (lua_gettop(L) >= 1 && luaL_checkint(L,1) >= 0 && luaL_checkint(L,1) <= 65535)
 	{
-		pglobalRecord globals = DSS_getvalidglobals(L); // won't return on error
-		setUDPPort(globals, luaL_checkint(L,1));
+		pglobalRecord g = DSS_getvalidglobals(L); // won't return on error
+		setUDPPort(g, luaL_checkint(L,1));
 		// report success
 		lua_pushinteger(L, 1);
 		return 1;
@@ -686,10 +687,10 @@ static int L_setport(lua_State *L)
 // @luareturns: UDP portnumber 1-65535 in use, or 0 if no port
 static int L_getport (lua_State *L)
 {
-	pglobalRecord globals = DSS_getvalidglobals(L); // won't return on error
-	DSS_mutexLock((*globals).lock);
-	lua_pushinteger(L, (*globals).udpport);
-	DSS_mutexUnlock((*globals).lock);
+	pglobalRecord g = DSS_getvalidglobals(L); // won't return on error
+	DSS_mutexLockx(&(g->lock));
+	lua_pushinteger(L, g->udpport);
+	DSS_mutexUnlockx(&(g->lock));
 	return 1;
 };
 
@@ -700,16 +701,16 @@ static int L_getport (lua_State *L)
 // or -1 if there was nothing on the queue to begin with.
 static int L_poll(lua_State *L)
 {
-	pglobalRecord globals = DSS_getvalidglobals(L); // won't return on error
+	pglobalRecord g = DSS_getvalidglobals(L); // won't return on error
 	int cnt = 0;
 	int res = 0;
 	queueItem qi;
 
 	// lock and collect data and count at same time
-	DSS_mutexLock((*globals).lock);
-	qi = queuePopUnlocked(globals, DSS_LASTITEM);
-	cnt = (*globals).QueueCount;
-	DSS_mutexUnlock((*globals).lock);
+	DSS_mutexLockx(&(g->lock));
+	qi = queuePopUnlocked(g, DSS_LASTITEM);
+	cnt = g->QueueCount;
+	DSS_mutexUnlockx(&(g->lock));
 
 	lua_settop(L, 0);		// clear stack
 	if (qi.pDecode != NULL)
@@ -744,7 +745,7 @@ static const struct luaL_Reg DarkSideSync[] = {
 
 DSS_API	int luaopen_darksidesync(lua_State *L)
 {
-	pglobalRecord globals;
+	pglobalRecord g;
 	int errcode;
 
 #ifdef _DEBUG
@@ -754,19 +755,19 @@ OutputDebugStringA("DSS: Registering started...\n");
 	if (DSS_initialized == NULL)  // TODO: first initialization of first mutex, this is unsafe! how to make it safe?
 	{
 		DSS_initialized = &DSS_initialized;	// point to itself, no longer NULL
-		if (DSS_mutexInit(utillock) != 0)
+		if (DSS_mutexInitx(&utillock) != 0)
 		{
 			// an error occured while initializing the 2 global mutexes
 			return luaL_error(L,"DSS had an error initializing its mutexes (utillock)");
 		}
-		DSS_mutexLock(utillock);
-		if (DSS_mutexInit(statelock) != 0)
+		DSS_mutexLockx(&utillock);
+		if (DSS_mutexInitx(&statelock) != 0)
 		{
 			// an error occured while initializing the 2 global mutexes
-			DSS_mutexUnlock(utillock);
+			DSS_mutexUnlockx(&utillock);
 			return luaL_error(L,"DSS had an error initializing its mutexes (statelock)");
 		}
-		DSS_mutexUnlock(utillock);
+		DSS_mutexUnlockx(&utillock);
 	}
 
 	// Initializes API structure for API 1.0
@@ -786,11 +787,11 @@ OutputDebugStringA("DSS: Registering started...\n");
 	lua_pop(L,1);
 
 	// get or create the stateglobals
-	globals = DSS_getstateglobals(L, &errcode);
+	g = DSS_getstateglobals(L, &errcode);
 	if (errcode == DSS_ERR_NO_GLOBALS)
 	{
 		// this is expected ! there shouldn't be a record yet on startup
-		globals = DSS_newstateglobals(L, &errcode);	// create a new one
+		g = DSS_newstateglobals(L, &errcode);	// create a new one
 		if (errcode != DSS_SUCCESS)
 		{
 			if (errcode == DSS_ERR_OUT_OF_MEMORY)
@@ -800,7 +801,7 @@ OutputDebugStringA("DSS: Registering started...\n");
 			return luaL_error(L, "Unknown error occured while trying to create a global data structure for the LuaState");
 		}
 	}
-	(*globals).DSS_status = DSS_STATUS_STARTED;
+	g->DSS_status = DSS_STATUS_STARTED;
 
 	// Store pointer to my api structure in the Lua registry
 	// for backgroundworkers to collect there
@@ -816,13 +817,13 @@ OutputDebugStringA("DSS: Registering started...\n");
 	lua_setfield(L, LUA_REGISTRYINDEX, DSS_REGISTRY_NAME);
 
 	// Increase state count and start network if first
-	DSS_mutexLock(statelock);
+	DSS_mutexLockx(&statelock);
 	if (statecount == 0)
 	{
 		DSS_networkInit();
 	}
 	statecount = statecount + 1;
-	DSS_mutexUnlock(statelock);
+	DSS_mutexUnlockx(&statelock);
 
 	luaL_register(L,"darksidesync",DarkSideSync);
 #ifdef _DEBUG
