@@ -231,7 +231,6 @@ static int DSS_clearstateglobals(lua_State *L)
 
 	// Reduce state count and close network if none left
 	DSS_mutexLockx(&statelock);
-	DSS_mutexLockx(&statelock);
 	statecount = statecount - 1;
 	if (statecount == 0)
 	{
