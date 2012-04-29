@@ -144,7 +144,7 @@ EXPORT_API	int luaopen_luaexit(lua_State *L){
 		DSS_cancel_1v0_t CancelFunc = &DSScancel;
 
 #ifdef _DEBUG
-OutputDebugStringA("LuaExit: Registering started...\n");
+OutputDebugStringA("LuaExit: LuaOpen started...\n");
 #endif
 		// Create userdata
 		lua_newuserdata(L, sizeof(void*));
@@ -165,7 +165,7 @@ OutputDebugStringA("LuaExit: Registering started...\n");
 
 		luaL_register(L,"luaexit",LuaExit);
 #ifdef _DEBUG
-OutputDebugStringA("LuaExit: Registering completed\n");
+OutputDebugStringA("LuaExit: LuaOpen completed\n");
 #endif
 		return 1;
 	};

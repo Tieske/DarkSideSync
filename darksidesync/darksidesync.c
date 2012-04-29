@@ -185,6 +185,7 @@ static pglobalRecord DSS_getvalidglobals(lua_State *L)
 }
 
 // Garbage collect function for the global userdata
+// DSS is exiting from this LuaState, so clean it all up
 static int DSS_clearstateglobals(lua_State *L)
 {
 	pglobalRecord g;
@@ -388,8 +389,11 @@ static void setUDPPort (pglobalRecord g, int newPort)
 static int DSS_validutil(putilRecord utilid)
 {
 	putilRecord id = UtilStart;	// start at top
-	while ((id != NULL) && (id->pNext != utilid)) id = id->pNext;
-	if (id == NULL) return 0;	// not found
+	if (utilid != id)
+	{
+		while ((id != NULL) && (id->pNext != utilid)) id = id->pNext;
+		if (id == NULL) return 0;	// not found
+	}
 	return 1; // found it
 }
 
@@ -402,6 +406,10 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void*
 	int result = DSS_SUCCESS;	// report success by default
 	int cnt;
 	char buff[20];
+
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: Start delivering data ...\n");
+#endif
 
 	DSS_mutexLockx(&utillock);
 	if (DSS_validutil(utilid) == 0)
@@ -446,6 +454,9 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void*
 	}
 
 	DSS_mutexUnlockx(&(g->lock));
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: End delivering data ...\n");
+#endif
 	return result;	
 };
 
@@ -559,6 +570,9 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 	if (errcode == NULL) errcode = &le;
 	*errcode = DSS_SUCCESS;
 
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: Start registering lib ...\n");
+#endif
 	if (pCancel == NULL)
 	{
 		*errcode = DSS_ERR_NO_CANCEL_PROVIDED;
@@ -616,6 +630,9 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 
 	DSS_mutexUnlockx(&(g->lock));
 	DSS_mutexUnlockx(&utillock);
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: Done registering lib ...\n");
+#endif
 	return util;
 }
 
@@ -628,6 +645,9 @@ static int DSS_unregister_1v0(putilRecord utilid)
 	pglobalRecord g;
 	queueItem qi;
 
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: Start unregistering lib ...\n");
+#endif
 	DSS_mutexLockx(&utillock);
 	if (DSS_validutil(utilid) == 0)
 	{
@@ -654,6 +674,9 @@ static int DSS_unregister_1v0(putilRecord utilid)
 
 	// Unlock, we're done with the util list
 	DSS_mutexUnlockx(&utillock);
+#ifdef _DEBUG
+	OutputDebugStringA("DSS: Done unregistering lib ...\n");
+#endif
 	return DSS_SUCCESS;
 }
 
@@ -748,7 +771,7 @@ DSS_API	int luaopen_darksidesync(lua_State *L)
 	int errcode;
 
 #ifdef _DEBUG
-OutputDebugStringA("DSS: Registering started...\n");
+OutputDebugStringA("DSS: LuaOpen started...\n");
 #endif
 
 	if (DSS_initialized == NULL)  // TODO: first initialization of first mutex, this is unsafe! how to make it safe?
@@ -826,7 +849,7 @@ OutputDebugStringA("DSS: Registering started...\n");
 
 	luaL_register(L,"darksidesync",DarkSideSync);
 #ifdef _DEBUG
-OutputDebugStringA("DSS: Registering completed\n");
+OutputDebugStringA("DSS: LuaOpen completed\n");
 #endif
 	return 1;
 };
