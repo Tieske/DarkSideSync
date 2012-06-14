@@ -35,7 +35,8 @@ Things to do
 
 Copyright & License
 -------------------
-Copyright 2012, Thijs Schreijer
+Copyright 2012, Thijs Schreijer.
+
 License is the same as Lua 5.1; MIT license.
 
 The name

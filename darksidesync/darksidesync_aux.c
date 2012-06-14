@@ -27,7 +27,6 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 	if (lua_islightuserdata (L, -1) == 0)
 	{
 		// the API struct wasn't found
-		// TODO: fix the string construction below, its crap.
 		char str[150]; // appr 40 chars for version string, should suffice
 		lua_getfield(L, -2, DSS_VERSION_KEY);
 		if (lua_isstring(L, -1))
