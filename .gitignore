@@ -7,3 +7,4 @@
 *.ncb
 /darksidesync/Debug
 /luaexit/Debug
+*.sdf

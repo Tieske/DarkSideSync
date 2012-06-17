@@ -1,9 +1,12 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lua_template", "luaexit\luaexit.vcproj", "{18D94275-AC41-41EB-8CEA-96ED6050002D}"
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "luaexit", "luaexit\luaexit.vcxproj", "{18D94275-AC41-41EB-8CEA-96ED6050002D}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FEDD20FF-D6EE-4B86-AB01-635CC9CDB6D7} = {FEDD20FF-D6EE-4B86-AB01-635CC9CDB6D7}
+	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "darksidesync", "darksidesync\darksidesync.vcproj", "{FEDD20FF-D6EE-4B86-AB01-635CC9CDB6D7}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "darksidesync", "darksidesync\darksidesync.vcxproj", "{FEDD20FF-D6EE-4B86-AB01-635CC9CDB6D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
