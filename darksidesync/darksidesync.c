@@ -64,7 +64,7 @@ static int DSS_hasstateglobals(lua_State *L)
 	pglobalRecord g;
 	// try and collect the globals userdata
 	lua_getfield(L, LUA_REGISTRYINDEX, DSS_GLOBALS_KEY);
-	g = lua_touserdata(L, -1);
+	g = (pglobalRecord)lua_touserdata(L, -1);
 	lua_pop(L,1);
 	if (g == NULL) return 0;
 	return 1;
@@ -84,7 +84,7 @@ static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
 	*errcode = DSS_SUCCESS;
 
 	// create a new one
-	g = lua_newuserdata(L, sizeof(globalRecord));
+	g = (pglobalRecord)lua_newuserdata(L, sizeof(globalRecord));
 	if (g == NULL) *errcode = DSS_ERR_OUT_OF_MEMORY;	// alloc failed
 
 	if (*errcode == DSS_SUCCESS) 
@@ -139,7 +139,7 @@ static pglobalRecord DSS_getstateglobals(lua_State *L, int* errcode)
 
 	// try and collect the globals userdata
 	lua_getfield(L, LUA_REGISTRYINDEX, DSS_GLOBALS_KEY);
-	g = lua_touserdata(L, -1);
+	g = (pglobalRecord)lua_touserdata(L, -1);
 	lua_pop(L,1);
 
 	if (g == NULL) *errcode = DSS_ERR_NO_GLOBALS;
@@ -598,7 +598,7 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 	}
 
 	// create and fill utility record
-	util = malloc(sizeof(utilRecord));
+	util = (putilRecord)malloc(sizeof(utilRecord));
 	if (util == NULL) 
 	{
 		DSS_mutexUnlockx(&(g->lock));

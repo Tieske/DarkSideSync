@@ -71,7 +71,7 @@ local dss = {
             if skt then
                 -- socket was created succesfully, now must tell my C side helper lib on what port
                 -- I'm listening for incoming data
-                darksidesync.start(port)
+                darksidesync.setport(port)
             end
         end
         return skt, port
