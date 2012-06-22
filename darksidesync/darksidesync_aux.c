@@ -105,6 +105,10 @@ static void DSS_shutdown(lua_State *L, void* utilid)
 {
 	if (DSSapi != NULL) 
 	{
+		if ((L == NULL) && ( utilid == NULL))
+		{
+			// TODO: must fail hard here
+		}
 		// If we got a Lua state, go lookup our utilid
 		if (L != NULL) utilid = DSSapi->getutilid(L, DSS_LibID, NULL);
 		// Unregister
