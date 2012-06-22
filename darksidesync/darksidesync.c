@@ -502,7 +502,7 @@ static int DSS_setdata_1v0(putilRecord utilid, void* pData)
 	return result;
 }
 
-// Gets then utilid based on a LuaState and libid
+// Gets the utilid based on a LuaState and libid
 // return NULL upon failure, see Errcode for details; DSS_SUCCESS,
 // DSS_ERR_NOT_STARTED or DSS_ERR_UNKNOWN_LIB
 static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
@@ -559,7 +559,8 @@ static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 // when DSS decides to terminate the collaboration with the utility
 // Returns: unique ID for the utility that must be used for all subsequent
 // calls to DSS, or NULL if it failed.
-// Failure reasons; DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED or DSS_ERR_OUT_OF_MEMORY
+// Failure reasons; DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, 
+//                  DSS_ERR_ALREADY_REGISTERED, DSS_ERR_OUT_OF_MEMORY
 static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, void* pData, int* errcode)
 {
 	putilRecord util;
@@ -583,6 +584,13 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 	if (g == NULL)
 	{
 		*errcode = DSS_ERR_NOT_STARTED;
+		return NULL;
+	}
+
+	if (DSS_getutilid_1v0(L, libid, NULL) != NULL)
+	{
+		// We got an ID returned, so this lib is already registered
+		*errcode = DSS_ERR_ALREADY_REGISTERED;
 		return NULL;
 	}
 

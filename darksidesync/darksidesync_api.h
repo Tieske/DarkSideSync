@@ -76,7 +76,7 @@ typedef int (*DSS_setdata_1v0_t) (void* utilid, void* pData);
 
 // returns the utilid, for the combination of the LuaState and libid provided
 // when handling a call form Lua, this enables access to the utilid, without
-// having to explcitly manage utilid's across different LuaStates.
+// having to explicitly manage utilid's across different LuaStates.
 // @arg1; LuaState pointer, this identifies a unique LuaState
 // @arg2; libid, generic pointer as an ID to a library (ID is shared across LuaStates)
 // @arg3; int pointer that will receive the error code DSS_ERR_UNKNOWN_LIB,
@@ -94,7 +94,7 @@ typedef void* (*DSS_getutilid_1v0_t) (lua_State *L, void* libid, int* errcode);
 // NOTE: it is up to the background worker to release any resources related to pData
 // @arg5; int pointer that will receive the error code, or DSS_SUCCESS if no error (param may be NULL)
 // @returns; unique ID (for the utility to use in other calls), or NULL and error
-// DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY
+// DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY, DSS_ERR_ALREADY_REGISTERED
 typedef void* (*DSS_register_1v0_t) (lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, void* pData, int* errcode);
 
 // The background worker should call this to unregister itself on
@@ -131,4 +131,5 @@ typedef struct DSS_api_1v0_s {
 #define DSS_ERR_INIT_MUTEX_FAILED -7	// initialization of mutex failed
 #define DSS_ERR_NO_GLOBALS -8			// LuaState does not have a global record
 #define DSS_ERR_UNKNOWN_LIB -9			// The library requesting its utildid is unregistered
+#define DSS_ERR_ALREADY_REGISTERED -10	// trying to register the same lib, in the same lua state again
 #endif /* darksidesync_api_h */

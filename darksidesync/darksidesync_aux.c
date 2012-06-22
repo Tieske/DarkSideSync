@@ -6,9 +6,9 @@
 // static pointer to itself, uniquely identifies this library
 static void* DSS_LibID = &DSS_LibID;
 // Static pointer to the DSS api, will be set by the initialize function below
-static pDSS_api_1v0_t DSSapi = NULL;
+static pDSS_api_1v0_t DSSapi = NULL;	// TODO: static, so it is not state independent!! add to utilid struct? must make utilid public then...
 
-// will return the api struct (pointer) for the api version 1v0
+// will get the api struct (pointer) for the api version 1v0
 // in case of errors it will provide a proper error message and call 
 // luaL_error. In case of an error the call will not return.
 static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
@@ -40,7 +40,7 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 		// following call does not return
 		luaL_error(L, str);
 	}
-	DSSapi = lua_touserdata(L, -1);
+	DSSapi = (pDSS_api_1v0_t)lua_touserdata(L, -1);
 	lua_pop(L,2); // pop apistruct and DSS global table
 
 	// Now register ourselves
@@ -55,6 +55,7 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 			case DSS_ERR_NOT_STARTED: luaL_error(L, "DSS was not started, or already stopped again.");
 			case DSS_ERR_NO_CANCEL_PROVIDED: luaL_error(L, "No proper cancel method was provided when initializing DSS.");
 			case DSS_ERR_OUT_OF_MEMORY: luaL_error(L, "Memory allocation error while initializing DSS");
+			case DSS_ERR_ALREADY_REGISTERED: luaL_error(L, "Library already registered with DSS for this LuaState");
 			default: luaL_error(L, "An unknown error occured while initializing DSS.");
 		}
 	}
@@ -62,10 +63,44 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 	return;
 }
 
+// Collect the utilid, or throw Lua error if none
+static void* DSS_getutilid(lua_State *L)
+{
+	int err = DSS_SUCCESS;
+	void* result = NULL;
+	if (DSSapi != NULL)
+	{
+		result = DSSapi->getutilid(L, DSS_LibID, &err);
+		if (err != DSS_SUCCESS)
+		{
+			luaL_error(L, "Cannot collect utilid from DSS");	// call won't return
+		}
+	}
+	else
+	{
+		luaL_error(L, "DSS not started");	// call won't return
+	}
+	return result;
+}
+
+// Deliver data to the Lua state asynchroneously
+// checks existence of the API
+static int DSS_deliver(void* utilid, DSS_decoder_1v0_t pDecode, void* pData)
+{
+	if (DSSapi != NULL)
+	{
+		return DSSapi->deliver(utilid, pDecode, pData);
+	}
+	else
+	{
+		return DSS_ERR_NOT_STARTED;
+	}
+}
+
 // at shutdown, this will safely unregister the library
 // use lua_State param if called from userdata __gc method
 // use utilid param if called from the DSS cancel() method
-// one param must be provided, lua_State has highest presedence
+// one param must be provided, lua_State has highest precedence
 static void DSS_shutdown(lua_State *L, void* utilid)
 {
 	if (DSSapi != NULL) 
