@@ -1,5 +1,6 @@
 local socket = require("socket")
 local darksidesync = require("darksidesync")
+local coxpcall = require("coxpcall")
 local skt, port
 
 
@@ -34,6 +35,11 @@ local createsocket = function()
     return skt, port
 end
 
+-- default error handler, see dss.seterrorhandler() below
+local ehandler = function()
+    print (debug.traceback("DSS error: callback function had an error;\n"))
+end
+
 -- reads incoming data on the socket, dismisses the data and calls poll()
 -- any data returned will have a first argument being a callback to be called with the remaining
 -- arguments
@@ -51,10 +57,10 @@ local sockethandler = function(skt)
             if type(cb) ~= "function" then
                 print ("error: the first argument returned should have been a lua function!")
             else
-                -- now call the callback with the other arguments as parameters, in a protected (pcall) mode
-                if not pcall(unpack(values)) then
-                    print ("error: callback function had an error")
-                end
+                -- now call the callback with the other arguments as parameters, in a protected (coxpcall) mode
+                local f = values[1]
+                table.remove(values, 1)
+                coxpcall(function() f(unpack(values)) end, ehandler)
             end
         end
     end
@@ -81,6 +87,12 @@ local dss = {
     -- read on the socket and call the appropriate callback with the arguments
     gethandler = function()
         return sockethandler
+    end,
+
+    -- sets the error handler when calling the callback function returned from DSS
+    seterrorhandler = function(f)
+        assert(type(f) == "function", "The errorhandler must be a function.")
+        ehandler = f
     end,
 
 }
