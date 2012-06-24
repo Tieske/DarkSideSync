@@ -1,6 +1,6 @@
 local socket = require("socket")
 local darksidesync = require("darksidesync")
-local coxpcall = require("coxpcall")
+require("coxpcall")
 local skt, port
 
 
@@ -60,7 +60,7 @@ local sockethandler = function(skt)
                 -- now call the callback with the other arguments as parameters, in a protected (coxpcall) mode
                 local f = values[1]
                 table.remove(values, 1)
-                coxpcall(function() f(unpack(values)) end, ehandler)
+                xpcall(function() f(unpack(values)) end, ehandler)
             end
         end
     end
