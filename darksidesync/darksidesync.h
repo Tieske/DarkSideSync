@@ -6,6 +6,7 @@
 #include "darksidesync_api.h"
 #include "udpsocket.h"
 #include "locking.h"
+#include "waithandle.h"
 
 //////////////////////////////////////////////////////////////
 // symbol list												//
@@ -23,6 +24,8 @@
 #define DSS_GLOBALS_KEY "DSS.globals"
 // Lua registry key for metatable of the global structure userdata
 #define DSS_GLOBALS_MT "DSS.globals.mt"
+// Lua registry key for metatable of queueItems waiting for 'return' callback
+#define DSS_QUEUEITEM_MT "DSS.queueitem.mt"
 
 // Define platform specific extern statement
 #ifdef WIN32
@@ -51,9 +54,13 @@ typedef struct utilReg {
 	} utilRecord;
 
 // Structure for storing data from an async callback in the queue
+// NOTE: while waiting for 'poll' to be called it will be in the queue,
+//       while waiting for 'return' callback, it will be in a userdata
 typedef struct qItem {
 		putilRecord utilid;			// unique ID to utility
-		DSS_decoder_1v0_t pDecode;	// Pointer to the decode function
+		DSS_decoder_1v0_t pDecode;	// Pointer to the decode function, if NULL then it was already called
+		DSS_return_1v0_t pReturn;	// Pointer to the return function
+		pDSS_waithandle pWaitHandle; // Wait handle to block thread while wait for return to be called
 		void* pData;				// Data to be decoded
 		pqueueItem pNext;			// Next item in queue
 		pqueueItem pPrevious;		// Previous item in queue

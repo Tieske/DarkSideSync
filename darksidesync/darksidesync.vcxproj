@@ -114,6 +114,7 @@
     <ClInclude Include="darksidesync_api.h" />
     <ClInclude Include="locking.h" />
     <ClInclude Include="udpsocket.h" />
+    <ClInclude Include="waithandle.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -78,7 +78,7 @@ OutputDebugStringA("LuaExit: unloading completed\n");
 
 		DecodeFunc = &signalDecoder;
 		// deliver signal to DarkSideSync, no data included
-		DSSapi->deliver(DSSutilid, DecodeFunc, NULL); // TODO: this is probably not safe in a signal handler!!!!!
+		DSSapi->deliver(DSSutilid, DecodeFunc, NULL, NULL); // TODO: this is probably not safe in a signal handler!!!!!
 		
 		signal(sigNum, signalHandler); // Set handler again
 	}

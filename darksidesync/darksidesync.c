@@ -6,15 +6,13 @@
 
 static putilRecord volatile UtilStart = NULL;		// Holds first utility in the list
 static void* volatile DSS_initialized = NULL;		// while its NULL, the first mutex is uninitialized
-static DSS_mutex_t utillock;						// lock to protect the network counter
+static DSS_mutex_t utillock;						// lock to list of utilities
 static int statecount = 0;							// counter for number of lua states using this lib
 static DSS_mutex_t statelock;						// lock to protect the state counter
 static DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
 
 // forward definitions
 void setUDPPort (pglobalRecord g, int newPort);
-
-//TODO minor:access the global should check on its metatable? is on registry, cannot modify from Lua, so is it an issue??
 
 #ifdef _DEBUG
 //can be found here  http://www.lua.org/pil/24.2.3.html
@@ -191,7 +189,7 @@ static int DSS_clearstateglobals(lua_State *L)
 	pglobalRecord g;
 	putilRecord listend;
 
-	g = lua_touserdata(L, 1);		// first param is userdata to destroy
+	g = (pglobalRecord)lua_touserdata(L, 1);		// first param is userdata to destroy
 
 #ifdef _DEBUG
 	OutputDebugStringA("DSS: Unloading DSS ...\n");
@@ -252,7 +250,7 @@ static int DSS_clearstateglobals(lua_State *L)
 // Push item in the queue (will NOT lock utils nor globals)
 // Returns number of items in queue, or DSS_ERR_OUT_OF_MEMORY or 
 // DSS_ERR_NOTSTARTED if it failed
-static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData)
+static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData, pqueueItem* resultitem)
 {
 	int cnt;
 	pqueueItem pqi = NULL;
@@ -265,13 +263,26 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData
 		return DSS_ERR_NOT_STARTED;
 	}
 
-	if (NULL == (pqi = malloc(sizeof(queueItem))))
+	if (NULL == (pqi = (pqueueItem)malloc(sizeof(queueItem))))
 	{
 		return DSS_ERR_OUT_OF_MEMORY;	// exit, memory alloc failed
 	}
 
+	pqi->pWaitHandle = NULL;
+	if (pReturn != NULL)
+	{
+		pqi->pWaitHandle = DSS_waithandle_create();
+		if (pqi->pWaitHandle == NULL)
+		{
+			// error, resource alloc failed
+			free(pqi);
+			return DSS_ERR_OUT_OF_MEMORY; 
+		}
+	}
+
 	pqi->utilid = utilid;
 	pqi->pDecode = pDecode;
+	pqi->pReturn = pReturn;
 	pqi->pData = pData;
 	pqi->pNext = NULL;
 	pqi->pPrevious = NULL;
@@ -292,6 +303,7 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData
 	g->QueueCount += 1;
 	cnt = g->QueueCount;
 
+	if (resultitem != NULL)  (*resultitem) = pqi;  // set result
 	return cnt;
 }
 
@@ -306,6 +318,8 @@ static queueItem queuePopUnlocked(pglobalRecord g, putilRecord utilid)
 	result.utilid = NULL;
 	result.pData = NULL;
 	result.pDecode = NULL;
+	result.pWaitHandle = NULL;
+	result.pReturn = NULL;
 	result.pNext = NULL;
 	result.pPrevious = NULL;
 
@@ -400,12 +414,13 @@ static int DSS_validutil(putilRecord utilid)
 // Call this to deliver data to the queue
 // @returns; DSS_SUCCESS, DSS_ERR_UDP_SEND_FAILED, 
 // DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED, DSS_ERR_INVALID_UTILID
-static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void* pData)
+static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData)
 {
 	pglobalRecord g;
 	int result = DSS_SUCCESS;	// report success by default
 	int cnt;
 	char buff[20];
+	pqueueItem pqi;
 
 #ifdef _DEBUG
 	OutputDebugStringA("DSS: Start delivering data ...\n");
@@ -429,7 +444,7 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void*
 		return DSS_ERR_NOT_STARTED;
 	}
 
-	cnt = queuePush(utilid, pDecode, pData);	// Push it on the queue
+	cnt = queuePush(utilid, pDecode, pReturn, pData, &pqi);	// Push it on the queue
 	if (cnt == DSS_ERR_OUT_OF_MEMORY) 
 	{
 		DSS_mutexUnlockx(&(g->lock));
@@ -454,6 +469,12 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, void*
 	}
 
 	DSS_mutexUnlockx(&(g->lock));
+	if (pqi->pWaitHandle != NULL)
+	{
+		// A waithandle was created, so we must go and wait for the queued item to be completed
+		DSS_waithandle_wait(pqi->pWaitHandle);	// blocks until released
+	}
+
 #ifdef _DEBUG
 	OutputDebugStringA("DSS: End delivering data ...\n");
 #endif
@@ -675,8 +696,18 @@ static int DSS_unregister_1v0(putilRecord utilid)
 	while (qi.pDecode != NULL)
 	{
 		qi.pDecode(NULL, qi.pData, utilid);	// no LuaState, use NULL to indicate cancelling
+		if (qi.pWaitHandle != NULL)
+		{
+			// release and delete waithandle
+			DSS_waithandle_signal(qi.pWaitHandle);
+			DSS_waithandle_delete(qi.pWaitHandle);
+		}
 		qi = queuePop(g, utilid);		// get next one
 	}
+
+	// Cancel all items in userdatas
+	// TODO: implement cancelling userdatas to release pData's and waithandles
+
 	// free resources
 	free(utilid);
 
@@ -735,23 +766,73 @@ static int L_poll(lua_State *L)
 	int cnt = 0;
 	int res = 0;
 	queueItem qi;
+	pqueueItem qi2;
+
+	lua_settop(L, 0);		// clear stack
 
 	// lock and collect data and count at same time
+	DSS_mutexLockx(&utillock);
 	DSS_mutexLockx(&(g->lock));
 	qi = queuePopUnlocked(g, DSS_LASTITEM);
 	cnt = g->QueueCount;
 	DSS_mutexUnlockx(&(g->lock));
+	if (qi.pDecode != NULL)
+	{
+		// keep utillock while calling this to prevent unregistering util meanwhile
+		// In this construct utilid will be valid!
+		// execute callback
+		res = qi.pDecode(L, qi.pData, qi.utilid);	
+	}
+	DSS_mutexUnlockx(&utillock);
 
-	lua_settop(L, 0);		// clear stack
 	if (qi.pDecode != NULL)
 	{
 		// Call the decoder function with the data provided
-		res = qi.pDecode(L, qi.pData, qi.utilid);
-		qi.pData = NULL;
-		lua_checkstack(L, 1);
+		//res = qi.pDecode(L, qi.pData, qi.utilid);      // The call was moved above, to within the locks!
+
+		qi.pDecode = NULL;				// set to NULL to indicate call is done
+		if (res < 1)	// indicator transaction is complete, do NOT create the userdata and do not call return callback
+		{
+			qi.pReturn = NULL;
+			if (qi.pWaitHandle != NULL)
+			{
+				DSS_waithandle_signal(qi.pWaitHandle);
+				DSS_waithandle_delete(qi.pWaitHandle);
+				qi.pWaitHandle = NULL;
+			}
+			lua_pushinteger(L, cnt);	// add count to results
+			return 1;					// Only count is returned
+		}
+		lua_checkstack(L, 2);
+		if (qi.pReturn != NULL)
+		{
+			// Create userdata to store the queueitem
+			qi2 = (pqueueItem)lua_newuserdata(L, sizeof(queueItem));
+			if (qi2 == NULL)
+			{
+				// memory allocation error, exit process here
+				qi.pReturn(NULL, qi.pData, qi.utilid, FALSE); // call with lua_State == NULL to have it cancelled
+				DSS_waithandle_signal(qi.pWaitHandle);
+				DSS_waithandle_delete(qi.pWaitHandle);
+				lua_pushinteger(L, cnt);	// add count to results
+				return 1;					// Only count is returned
+			}
+			*qi2 = qi;	// copy contents to the userdata
+
+			// attach metatable
+			luaL_getmetatable(L, DSS_QUEUEITEM_MT);
+			lua_setmetatable(L, -2);
+
+			// TODO: store in separate queue for userdatas
+			// TODO: make sure userdata is on top, other stuff must be gone here
+
+			// Move userdata on top to 2nd position, directly after the lua callback function
+			if (lua_gettop(L) > 2 ) lua_insert(L, 2);
+			res = res + 1;		// 1 more result because we added the userdata
+		}
 		lua_pushinteger(L, cnt);	// add count to results
 		lua_insert(L,1);			// move count to 1st position
-		return (res + 1);			// 1 more result than the decode function delivered
+		return (res + 1);			// 1 more result because of the count that was added
 	}
 	else
 	{
@@ -760,6 +841,61 @@ static int L_poll(lua_State *L)
 		return 1;	// 1 return argument
 	}
 };
+
+// Execute the return callback, either regular or from garbage collector
+static int L_return_internal(lua_State *L, BOOL garbage)
+{
+	int res = 0;
+	pqueueItem qi = (pqueueItem)luaL_checkudata(L, 1, DSS_QUEUEITEM_MT);	// first item must be our queue item
+	lua_remove(L, 1);	// remove userdata from stack
+
+	DSS_mutexLockx(&utillock);
+	if (qi->pDecode == NULL)
+	{
+		if (! garbage)
+		{
+			// 'return' method was called on an invalid utilityitem
+			DSS_mutexUnlockx(&utillock);
+			if (DSS_validutil(qi->utilid))
+			{
+				return luaL_error(L, "DSS: Error calling return method, item has already been handled");
+			}
+			else
+			{
+				return luaL_error(L, "DSS: Error calling return function, parent library has unregistered from DSS");
+			}
+		}
+	}
+	else
+	{
+		// keep utillock while calling this to prevent unregistering util meanwhile
+		// In this construct utilid will be valid!
+		// execute callback
+		res = qi->pReturn(L, qi->pData, qi->utilid, garbage);	
+		qi->pReturn = NULL;
+		qi->pData = NULL;
+		if (qi->pWaitHandle != NULL)
+		{
+			DSS_waithandle_signal(qi->pWaitHandle);
+			DSS_waithandle_delete(qi->pWaitHandle);
+			qi->pWaitHandle = NULL;
+		}
+	}
+	DSS_mutexUnlockx(&utillock);
+	return res;
+}
+
+// GC method for queue items waiting for a 'return' callback
+static int L_queueItemGC(lua_State *L)
+{
+	return L_return_internal(L, TRUE);
+}
+
+// Return method for queue items waiting for a 'return' callback
+static int L_return(lua_State *L)
+{
+	return L_return_internal(L, FALSE);
+}
 
 /*
 ** ===============================================================
@@ -802,12 +938,24 @@ OutputDebugStringA("DSS: LuaOpen started...\n");
 
 	// Initializes API structure for API 1.0
 	DSS_api_1v0.version = DSS_API_1v0_KEY;
-	DSS_api_1v0.reg = &DSS_register_1v0;
-	DSS_api_1v0.getutilid = &DSS_getutilid_1v0;
-	DSS_api_1v0.deliver = &DSS_deliver_1v0;
-	DSS_api_1v0.getdata = &DSS_getdata_1v0;
-	DSS_api_1v0.setdata = &DSS_setdata_1v0;
-	DSS_api_1v0.unreg = &DSS_unregister_1v0;
+	DSS_api_1v0.reg = (DSS_register_1v0_t)&DSS_register_1v0;
+	DSS_api_1v0.getutilid = (DSS_getutilid_1v0_t)&DSS_getutilid_1v0;
+	DSS_api_1v0.deliver = (DSS_deliver_1v0_t)&DSS_deliver_1v0;
+	DSS_api_1v0.getdata = (DSS_getdata_1v0_t)&DSS_getdata_1v0;
+	DSS_api_1v0.setdata = (DSS_setdata_1v0_t)&DSS_setdata_1v0;
+	DSS_api_1v0.unreg = (DSS_unregister_1v0_t)&DSS_unregister_1v0;
+
+	// Create metatable for userdata's waiting for 'return' callback
+	luaL_newmetatable(L, DSS_QUEUEITEM_MT);
+	lua_pushstring(L, "__index");
+	lua_pushvalue(L, -2);  
+	lua_settable(L, -3);	// copy metatable itself
+	lua_pushstring(L, "__gc");
+	lua_pushcfunction(L, &L_queueItemGC);
+	lua_settable(L, -3);
+	lua_pushstring(L, "return");
+	lua_pushcfunction(L, &L_return);
+	lua_settable(L, -3);
 
 	// Create a metatable to GC the global data upon exit
 	luaL_newmetatable(L, DSS_GLOBALS_MT);

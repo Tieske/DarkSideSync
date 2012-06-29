@@ -61,5 +61,8 @@
     <ClInclude Include="udpsocket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="waithandle.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

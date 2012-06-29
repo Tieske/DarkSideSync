@@ -96,6 +96,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\darksidesync\waithandle.c" />
     <ClCompile Include="luaexit.c" />
   </ItemGroup>
   <ItemGroup>

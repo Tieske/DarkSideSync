@@ -20,15 +20,38 @@
 // for decoding this pData and take appropriate action.
 // @arg1; the Lua state (or NULL if items are being cancelled)
 // @arg2; the pData previously delivered. 
-// @arg3;  the unique utility ID for which the call is being made (in case
+// @arg3; the unique utility ID for which the call is being made (in case
 // the utility has been 'required' in multiple parallel lua states)
-// Returns; similar to Lua functions, the number of results on the stack.
-// NOTE: the intent is that the decode function handles everything and returns
-//       nothing on the Lua stack. In some cases, when callbacks have to be made
-//       from Lua instead of from C, results can be returned on the stack.
-//       As a guideline; the first value should be the callback function to be
-//       called, with the remaining values as parameters.
+// If @arg1 is NULL, then resources should be released to cleanup, upon
+// returning the waiting thread will be released.
+// NOTE: Must always return; do not use code that causes longjumps etc. 
+//       like luaL_error etc. 
+// Should return; 
+//   >0 ;nr of items on stack, 1st item must be lua function, to be called with remaining items as args
+//       upon returning a new 1st argument will be inserted; a userdata as reference to the waiting thread
+//       (only if a 'return' callback was specified on calling 'deliver' obviously)
+//    0 ;cycle complete, do not create userdata and release the waiting thread (if set to wait)
+// if 0 the DSS process for this callback stops here, so any resources should be released here
+// before returning, or by the blocked thread after it is released.
 typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* utilid);
+
+// The backgroundworker must provide this function. The function
+// will get a pointer to previously delivered pData and is responsible
+// for retrieving Lua results and store them in pData, so the initial calling
+// (and currently blocked) thread can handle the results when released.
+// When this function returns the blocked thread will be released.
+// @arg1; the Lua state (or NULL if items are being cancelled)
+// @arg2; the pData previously delivered. 
+// @arg3; the unique utility ID for which the call is being made (in case
+//        the utility has been 'required' in multiple parallel lua states)
+// @arg4; BOOL indicating (TRUE) whether the function was called from the
+//        __GC method of the userdata.
+// returns: number of lua args on stack
+// NOTE: 1) This is the final call, so any resources must be released here, or 
+//          by the unblocked thread
+//       2) Must always return; do not use code that causes longjumps etc. like 
+//          luaL_error etc.
+typedef int (*DSS_return_1v0_t) (lua_State *L, void* pData, void* utilid, int garbage);
 
 // The backgroundworker must provide this function. A pointer
 // to this method should be provided when calling the DSS_register function.
@@ -48,17 +71,21 @@ typedef void (*DSS_cancel_1v0_t) (void* utilid, void* pData);
 // DSS_REGISTRY_NAME for collecting it) to deliver data
 // to the Lua state.
 // @arg1; ID of utility delivering (see register() function)
-// @arg2: pointer to a decoder function (see DSS_decoder_t above)
-// @arg3; pointer to some piece of data.
+// @arg2; pointer to a decoder function (see DSS_decoder_t above)
+// @arg3; pointer to a return function (see DSS_decoder_t above)
+// @arg4; pointer to some piece of data.
 // @returns; DSS_SUCCESS, DSS_ERR_INVALID_UTILID, DSS_ERR_UDP_SEND_FAILED, 
 // DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED
 // NOTE1: DSS_ERR_UDP_SEND_FAILED means that the data was still delivered to the
-// queue, only the notification failed, for the other errors, it will not be
-// queued.
+//        queue, only the notification failed, for the other errors, it will not be
+//        queued.
 // NOTE2: edgecase due to synchronization, when delivering while DSS is stopping
-// DSS_ERR_INVALID_UTILID may be returned, even if cancel() was not called yet,
-// so this should always be checked
-typedef int (*DSS_deliver_1v0_t) (void* utilid, DSS_decoder_1v0_t pDecode, void* pData);
+//        DSS_ERR_INVALID_UTILID may be returned, even if cancel() was not called
+//        yet, so this should always be checked
+// NOTE3: 'return' callback, if provided, the thread will be blocked until the 
+//        DSS process for this callback is complete. If NULL, the thread returns
+//        immediately.
+typedef int (*DSS_deliver_1v0_t) (void* utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData);
 
 // Returns the data associated with the given utilid
 // @arg1; ID of utility delivering (see register() function)

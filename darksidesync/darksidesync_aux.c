@@ -85,11 +85,11 @@ static void* DSS_getutilid(lua_State *L)
 
 // Deliver data to the Lua state asynchroneously
 // checks existence of the API
-static int DSS_deliver(void* utilid, DSS_decoder_1v0_t pDecode, void* pData)
+static int DSS_deliver(void* utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData)
 {
 	if (DSSapi != NULL)
 	{
-		return DSSapi->deliver(utilid, pDecode, pData);
+		return DSSapi->deliver(utilid, pDecode, pReturn, pData);
 	}
 	else
 	{
