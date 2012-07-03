@@ -27,6 +27,9 @@
     <ClCompile Include="udpsocket.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="waithandle.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="debug.lua">

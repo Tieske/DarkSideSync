@@ -673,6 +673,7 @@ static int DSS_unregister_1v0(putilRecord utilid)
 {
 	pglobalRecord g;
 	queueItem qi;
+	pqueueItem pqi = NULL;
 
 #ifdef _DEBUG
 	OutputDebugStringA("DSS: Start unregistering lib ...\n");
@@ -705,8 +706,40 @@ static int DSS_unregister_1v0(putilRecord utilid)
 		qi = queuePop(g, utilid);		// get next one
 	}
 
-	// Cancel all items in userdatas
-	// TODO: implement cancelling userdatas to release pData's and waithandles
+	// Cancel all items stored in userdatas
+	pqi = g->UserdataStart;
+	while (pqi != NULL)
+	{
+		if (pqi->utilid == utilid)
+		{
+			// need to cancel this one, as it has our ID
+			// first remove from list
+			if (pqi->pPrevious != NULL)
+			{
+				pqi->pPrevious->pNext = pqi->pNext;
+				if (pqi->pNext != NULL) 
+					pqi->pNext->pPrevious = pqi->pPrevious;
+				else
+					pqi->pNext = NULL;
+			}
+			else
+			{
+				g->UserdataStart = pqi->pNext;
+				if (pqi->pNext != NULL) pqi->pNext->pPrevious = NULL;
+			}
+
+			// cancel the item
+			if (pqi->pReturn != NULL)
+			{
+				// Call return function with lua_State == NULL, to indicate cancelling
+				pqi->pReturn(NULL, pqi->pData, pqi->utilid, FALSE);
+				pqi->pReturn = NULL;	// set to done, so GC can collect without calling again
+			}
+		}
+
+		// move to next item in list
+		pqi = pqi->pNext;
+	}
 
 	// free resources
 	free(utilid);
@@ -765,6 +798,7 @@ static int L_poll(lua_State *L)
 	pglobalRecord g = DSS_getvalidglobals(L); // won't return on error
 	int cnt = 0;
 	int res = 0;
+	int err = DSS_SUCCESS;
 	queueItem qi;
 	pqueueItem qi2;
 
@@ -783,13 +817,9 @@ static int L_poll(lua_State *L)
 		// execute callback
 		res = qi.pDecode(L, qi.pData, qi.utilid);	
 	}
-	DSS_mutexUnlockx(&utillock);
 
 	if (qi.pDecode != NULL)
 	{
-		// Call the decoder function with the data provided
-		//res = qi.pDecode(L, qi.pData, qi.utilid);      // The call was moved above, to within the locks!
-
 		qi.pDecode = NULL;				// set to NULL to indicate call is done
 		if (res < 1)	// indicator transaction is complete, do NOT create the userdata and do not call return callback
 		{
@@ -801,6 +831,7 @@ static int L_poll(lua_State *L)
 				qi.pWaitHandle = NULL;
 			}
 			lua_pushinteger(L, cnt);	// add count to results
+			DSS_mutexUnlockx(&utillock);
 			return 1;					// Only count is returned
 		}
 		lua_checkstack(L, 2);
@@ -815,6 +846,7 @@ static int L_poll(lua_State *L)
 				DSS_waithandle_signal(qi.pWaitHandle);
 				DSS_waithandle_delete(qi.pWaitHandle);
 				lua_pushinteger(L, cnt);	// add count to results
+				DSS_mutexUnlockx(&utillock);
 				return 1;					// Only count is returned
 			}
 			*qi2 = qi;	// copy contents to the userdata
@@ -823,20 +855,30 @@ static int L_poll(lua_State *L)
 			luaL_getmetatable(L, DSS_QUEUEITEM_MT);
 			lua_setmetatable(L, -2);
 
-			// TODO: store in separate queue for userdatas
-			// TODO: make sure userdata is on top, other stuff must be gone here
+			// store in userdata list
+			g = DSS_getstateglobals(L, &err);
+			if (err != DSS_SUCCESS || g == NULL)
+			{
+				DSS_mutexUnlockx(&utillock);
+				return luaL_error(L, "DSS: Internal error, global record is not available while QueueItems are still around (move to userdata)!!");
+			}
+			qi2->pNext = g->UserdataStart;
+			qi2->pPrevious = NULL;
+			if (qi2->pNext != NULL) qi2->pNext->pPrevious = qi2;
 
-			// Move userdata on top to 2nd position, directly after the lua callback function
+			// Move userdata (on top) to 2nd position, directly after the lua callback function
 			if (lua_gettop(L) > 2 ) lua_insert(L, 2);
 			res = res + 1;		// 1 more result because we added the userdata
 		}
 		lua_pushinteger(L, cnt);	// add count to results
 		lua_insert(L,1);			// move count to 1st position
+		DSS_mutexUnlockx(&utillock);
 		return (res + 1);			// 1 more result because of the count that was added
 	}
 	else
 	{
 		// push queue count as return value
+		DSS_mutexUnlockx(&utillock);
 		lua_pushinteger(L, -1);	// return -1 to indicate queue was empty when called
 		return 1;	// 1 return argument
 	}
@@ -846,41 +888,70 @@ static int L_poll(lua_State *L)
 static int L_return_internal(lua_State *L, BOOL garbage)
 {
 	int res = 0;
+	int err = DSS_SUCCESS;
+	pglobalRecord g = NULL;
 	pqueueItem qi = (pqueueItem)luaL_checkudata(L, 1, DSS_QUEUEITEM_MT);	// first item must be our queue item
 	lua_remove(L, 1);	// remove userdata from stack
 
 	DSS_mutexLockx(&utillock);
-	if (qi->pDecode == NULL)
+	if (qi->pReturn == NULL)
 	{
+		// No more return function so the queueitem has been cancelled, or been dealt with already, so it must be garbage
 		if (! garbage)
 		{
+			// its not garbage, so something went wrong
 			// 'return' method was called on an invalid utilityitem
 			DSS_mutexUnlockx(&utillock);
 			if (DSS_validutil(qi->utilid))
 			{
-				return luaL_error(L, "DSS: Error calling return method, item has already been handled");
+				return luaL_error(L, "DSS: Error calling 'return' method. Method was called more than once or the item was cancelled by the originating library.");
 			}
 			else
 			{
-				return luaL_error(L, "DSS: Error calling return function, parent library has unregistered from DSS");
+				return luaL_error(L, "DSS: Error calling 'return' method, originating library has unregistered from DSS and is no longer available");
 			}
 		}
+		// So it is garbage, as it is supposed to be here, nothing to do, just unlock and return
+		DSS_mutexUnlockx(&utillock);
+		return 0;
+	}
+
+	// keep utillock while calling this to prevent unregistering util meanwhile
+	// In this construct utilid will be valid!
+	// Move it off-list
+	if (qi->pPrevious == NULL)
+	{
+		// its the first item in the list, so we need the global record to update the pointer there
+		g = DSS_getstateglobals(L, &err);
+		if (err != DSS_SUCCESS || g == NULL)
+		{
+			DSS_mutexUnlockx(&utillock);
+			return luaL_error(L, "DSS: Internal error, global record is not available while QueueItems are still around (finish userdata)!!");
+		}
+		g->UserdataStart = qi->pNext;
+		if (qi->pNext != NULL) qi->pNext->pPrevious = NULL;
+		g = NULL;
 	}
 	else
 	{
-		// keep utillock while calling this to prevent unregistering util meanwhile
-		// In this construct utilid will be valid!
-		// execute callback
-		res = qi->pReturn(L, qi->pData, qi->utilid, garbage);	
-		qi->pReturn = NULL;
-		qi->pData = NULL;
-		if (qi->pWaitHandle != NULL)
-		{
-			DSS_waithandle_signal(qi->pWaitHandle);
-			DSS_waithandle_delete(qi->pWaitHandle);
-			qi->pWaitHandle = NULL;
-		}
+		// its somewhere mid-list, just update
+		qi->pPrevious->pNext = qi->pNext;
+		if (qi->pNext != NULL)	qi->pNext->pPrevious = qi->pPrevious;
 	}
+	qi->pNext = NULL;
+	qi->pPrevious = NULL;
+
+	// now execute callback, here the utility should release all resources
+	res = qi->pReturn(L, qi->pData, qi->utilid, garbage);	
+	qi->pReturn = NULL;
+	qi->pData = NULL;
+	if (qi->pWaitHandle != NULL)
+	{
+		DSS_waithandle_signal(qi->pWaitHandle);
+		DSS_waithandle_delete(qi->pWaitHandle);
+		qi->pWaitHandle = NULL;
+	}
+
 	DSS_mutexUnlockx(&utillock);
 	return res;
 }

@@ -100,6 +100,7 @@
     <ClCompile Include="darksidesync_aux.c" />
     <ClCompile Include="locking.c" />
     <ClCompile Include="udpsocket.c" />
+    <ClCompile Include="waithandle.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="debug.lua" />

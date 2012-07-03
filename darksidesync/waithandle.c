@@ -11,13 +11,16 @@
 ** ===============================================================
 */
 // Returns NULL upon failure
-// initial state of the handle returned is 'signalled'
+// initial state of the handle returned is 'reset' (Closed)
 pDSS_waithandle DSS_waithandle_create()
 {
-	pDSS_waithandle wh;
-
-	// TODO: implement
-
+	pDSS_waithandle wh = (pDSS_waithandle)malloc(sizeof(DSS_waithandle_t));
+	if (wh == NULL)
+	{
+		// error allocating memory
+		return NULL;
+	}
+	wh->semaphore = CreateSemaphore(NULL, 0, 1, NULL);
 	DSS_waithandle_signal(wh);
 	return wh;
 }
@@ -29,7 +32,12 @@ pDSS_waithandle DSS_waithandle_create()
 */
 void DSS_waithandle_reset(pDSS_waithandle wh)
 {
-	// TODO: implement
+	if (wh != NULL) {
+		// to reset, first release by 1, has no effect if already releases
+		ReleaseSemaphore(wh->semaphore,1, NULL);
+		// now wait 1, effectively reducing to 0 and hence closing
+		WaitForSingleObject(wh->semaphore, INFINITE);
+	}
 }
 
 /*
@@ -39,7 +47,9 @@ void DSS_waithandle_reset(pDSS_waithandle wh)
 */
 void DSS_waithandle_signal(pDSS_waithandle wh)
 {
-	// TODO: implement
+	if (wh != NULL) {
+		ReleaseSemaphore(wh->semaphore, 1, NULL);
+	}
 }
 
 /*
@@ -49,7 +59,9 @@ void DSS_waithandle_signal(pDSS_waithandle wh)
 */
 void DSS_waithandle_wait(pDSS_waithandle wh)
 {
-	// TODO: implement
+	if (wh != NULL) {
+		WaitForSingleObject(wh->semaphore, INFINITE);
+	}
 }
 
 /*
@@ -59,7 +71,11 @@ void DSS_waithandle_wait(pDSS_waithandle wh)
 */
 void DSS_waithandle_delete(pDSS_waithandle wh)
 {
-	// TODO: implement
+	if (wh != NULL) {
+		// release before destroying
+		ReleaseSemaphore(wh->semaphore, 1, NULL);
+		CloseHandle(wh->semaphore);
+	}
 }
 
 #endif

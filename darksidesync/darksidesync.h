@@ -62,8 +62,8 @@ typedef struct qItem {
 		DSS_return_1v0_t pReturn;	// Pointer to the return function
 		pDSS_waithandle pWaitHandle; // Wait handle to block thread while wait for return to be called
 		void* pData;				// Data to be decoded
-		pqueueItem pNext;			// Next item in queue
-		pqueueItem pPrevious;		// Previous item in queue
+		pqueueItem pNext;			// Next item in queue/list
+		pqueueItem pPrevious;		// Previous item in queue/list
 	} queueItem;
 
 // structure for state global variables to be stored outside of the LuaState
@@ -78,6 +78,8 @@ typedef struct stateGlobals {
 		pqueueItem volatile QueueStart;		// Holds first element in the queue
 		pqueueItem volatile QueueEnd;		// Holds the last item in the queue
 		int volatile QueueCount;			// Count of items in queue
+		// Elements for the userdata list
+		pqueueItem volatile UserdataStart;  // Holds first element in the list
 	} globalRecord;
 
 

@@ -2,7 +2,7 @@
 #define dss_waithandle_h
 
 #ifdef WIN32
-	#include <winsock.h>
+	#include <Windows.h>
 #else
 	#ifndef INVALID_SOCKET
 		#define INVALID_SOCKET -1		// Define value for no valid socket
@@ -16,11 +16,10 @@
 typedef struct DSS_waithandle *pDSS_waithandle;
 typedef struct DSS_waithandle {
 	#ifdef WIN32
-		SOCKET udpsock;	
+		HANDLE semaphore;	
 	#else  // Unix
 		int udpsock;	
 	#endif
-	struct sockaddr_in receiver_addr;
 } DSS_waithandle_t;
 
 

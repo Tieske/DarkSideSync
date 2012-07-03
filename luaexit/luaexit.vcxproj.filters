@@ -18,9 +18,6 @@
     <ClCompile Include="luaexit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\darksidesync\waithandle.c">
-      <Filter>Resource Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="luaexit_test.lua">
