@@ -248,11 +248,14 @@ static int DSS_clearstateglobals(lua_State *L)
 ** ===============================================================
 */
 // Push item in the queue (will NOT lock utils nor globals)
-// Returns number of items in queue, or DSS_ERR_OUT_OF_MEMORY or 
+// Returns waithandle or NULL,
+// resultitem; will contain the queueItem as created
+// result; will contain number of items in queue, or DSS_ERR_OUT_OF_MEMORY or 
 // DSS_ERR_NOTSTARTED if it failed
-static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData, pqueueItem* resultitem)
+static pDSS_waithandle queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData, pqueueItem* resultitem, int* result)
 {
 	int cnt;
+	pDSS_waithandle wh = NULL;
 	pqueueItem pqi = NULL;
 	pglobalRecord g; 
 	
@@ -260,26 +263,29 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_return_
 
 	if (DSS_isvalidglobals(g) == 0) 
 	{
-		return DSS_ERR_NOT_STARTED;
+		*result = DSS_ERR_NOT_STARTED;
+		return NULL;
 	}
 
 	if (NULL == (pqi = (pqueueItem)malloc(sizeof(queueItem))))
 	{
-		return DSS_ERR_OUT_OF_MEMORY;	// exit, memory alloc failed
+		*result = DSS_ERR_OUT_OF_MEMORY;
+		return NULL;	// exit, memory alloc failed
 	}
 
-	pqi->pWaitHandle = NULL;
 	if (pReturn != NULL)
 	{
-		pqi->pWaitHandle = DSS_waithandle_create();
-		if (pqi->pWaitHandle == NULL)
+		wh = DSS_waithandle_create();
+		if (wh == NULL)
 		{
 			// error, resource alloc failed
 			free(pqi);
-			return DSS_ERR_OUT_OF_MEMORY; 
+			*result = DSS_ERR_OUT_OF_MEMORY; 
+			return NULL; 
 		}
 	}
 
+	pqi->pWaitHandle = wh;
 	pqi->utilid = utilid;
 	pqi->pDecode = pDecode;
 	pqi->pReturn = pReturn;
@@ -304,7 +310,8 @@ static int queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_return_
 	cnt = g->QueueCount;
 
 	if (resultitem != NULL)  (*resultitem) = pqi;  // set result
-	return cnt;
+	*result = cnt;
+	return wh;
 }
 
 // Pop item from the queue, without locking; caller must lock globals!
@@ -421,6 +428,7 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_r
 	int cnt;
 	char buff[20];
 	pqueueItem pqi;
+	pDSS_waithandle wh;
 
 #ifdef _DEBUG
 	OutputDebugStringA("DSS: Start delivering data ...\n");
@@ -444,7 +452,7 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_r
 		return DSS_ERR_NOT_STARTED;
 	}
 
-	cnt = queuePush(utilid, pDecode, pReturn, pData, &pqi);	// Push it on the queue
+	wh = queuePush(utilid, pDecode, pReturn, pData, &pqi, &cnt);	// Push it on the queue
 	if (cnt == DSS_ERR_OUT_OF_MEMORY) 
 	{
 		DSS_mutexUnlockx(&(g->lock));
@@ -469,10 +477,11 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_r
 	}
 
 	DSS_mutexUnlockx(&(g->lock));
-	if (pqi->pWaitHandle != NULL)
+	if (wh != NULL)
 	{
 		// A waithandle was created, so we must go and wait for the queued item to be completed
-		DSS_waithandle_wait(pqi->pWaitHandle);	// blocks until released
+		DSS_waithandle_wait(wh);	// blocks until released
+		DSS_waithandle_delete(wh);	// destroy waithandle
 	}
 
 #ifdef _DEBUG
@@ -701,7 +710,7 @@ static int DSS_unregister_1v0(putilRecord utilid)
 		{
 			// release and delete waithandle
 			DSS_waithandle_signal(qi.pWaitHandle);
-			DSS_waithandle_delete(qi.pWaitHandle);
+			//DSS_waithandle_delete(qi.pWaitHandle);	will be destroyed by the waiting thread
 		}
 		qi = queuePop(g, utilid);		// get next one
 	}
@@ -827,7 +836,7 @@ static int L_poll(lua_State *L)
 			if (qi.pWaitHandle != NULL)
 			{
 				DSS_waithandle_signal(qi.pWaitHandle);
-				DSS_waithandle_delete(qi.pWaitHandle);
+				//DSS_waithandle_delete(qi.pWaitHandle);	will be destroyed by the waiting thread
 				qi.pWaitHandle = NULL;
 			}
 			lua_pushinteger(L, cnt);	// add count to results
@@ -844,7 +853,7 @@ static int L_poll(lua_State *L)
 				// memory allocation error, exit process here
 				qi.pReturn(NULL, qi.pData, qi.utilid, FALSE); // call with lua_State == NULL to have it cancelled
 				DSS_waithandle_signal(qi.pWaitHandle);
-				DSS_waithandle_delete(qi.pWaitHandle);
+				//DSS_waithandle_delete(qi.pWaitHandle);	will be destroyed by the waiting thread
 				lua_pushinteger(L, cnt);	// add count to results
 				DSS_mutexUnlockx(&utillock);
 				return 1;					// Only count is returned
@@ -948,7 +957,7 @@ static int L_return_internal(lua_State *L, BOOL garbage)
 	if (qi->pWaitHandle != NULL)
 	{
 		DSS_waithandle_signal(qi->pWaitHandle);
-		DSS_waithandle_delete(qi->pWaitHandle);
+		//DSS_waithandle_delete(qi->pWaitHandle);	will be destroyed by the waiting thread
 		qi->pWaitHandle = NULL;
 	}
 
