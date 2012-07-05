@@ -40,6 +40,9 @@ local ehandler = function()
     print (debug.traceback("DSS error: callback function had an error;\n"))
 end
 
+-- argument rotate left (remove 1st in list)
+local rotate = function(drop, ...) return ... end
+
 -- reads incoming data on the socket, dismisses the data and calls poll()
 -- any data returned will have a first argument being a callback to be called with the remaining
 -- arguments
@@ -51,7 +54,7 @@ local sockethandler = function(skt)
     if values[1] == -1 then
         -- there was nothing in the queue, nothing was executed
     else
-        table.remove(values, 1) -- drop queuecount
+        values = { rotate(unpack(values)) }
         local cb = values[1] -- get the callback, always the first argument
         if cb then
             if type(cb) ~= "function" then
@@ -59,7 +62,7 @@ local sockethandler = function(skt)
             else
                 -- now call the callback with the other arguments as parameters, in a protected (coxpcall) mode
                 local f = values[1]
-                table.remove(values, 1)
+                values = { rotate(unpack(values)) }
                 xpcall(function() f(unpack(values)) end, ehandler)
             end
         end
