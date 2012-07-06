@@ -101,6 +101,7 @@ static pglobalRecord DSS_newstateglobals(lua_State *L, int* errcode)
 		g->QueueCount = 0;
 		g->QueueEnd = NULL;
 		g->QueueStart = NULL;
+		g->UserdataStart = NULL;
 	}
 
 	if (*errcode != DSS_SUCCESS)	// we had an error
