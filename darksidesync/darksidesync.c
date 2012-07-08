@@ -801,8 +801,11 @@ static int L_getport (lua_State *L)
 
 // Lua function to get the next item from the queue, its decode
 // function will be called to do what needs to be done
-// returns: queuesize of remaining items, followed by any stuff left by decoder
-// or -1 if there was nothing on the queue to begin with.
+// returns: 
+// 1st: queuesize of remaining items (or -1 if there was nothing on the queue to begin with)
+// 2nd: lua callback function to handle the data
+// 3rd: userdata waiting for the response (only of a 'return' call is still valid)
+// 4th+: any stuff left by decoder after the callback function (2nd above)
 static int L_poll(lua_State *L)
 {
 	pglobalRecord g = DSS_getvalidglobals(L); // won't return on error
