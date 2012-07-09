@@ -293,6 +293,7 @@ static pDSS_waithandle queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode,
 	pqi->pData = pData;
 	pqi->pNext = NULL;
 	pqi->pPrevious = NULL;
+	pqi->udata = NULL;
 
 	if (g->QueueStart == NULL)
 	{
@@ -319,17 +320,9 @@ static pDSS_waithandle queuePush (putilRecord utilid, DSS_decoder_1v0_t pDecode,
 // Returns queueItem filled, or all NULLs if none available
 // utilid is id of utility for which to return, or NULL to
 // just return the oldest item, independent of a utilid
-static queueItem queuePopUnlocked(pglobalRecord g, putilRecord utilid)
+static pqueueItem queuePopUnlocked(pglobalRecord g, putilRecord utilid)
 {
-	pqueueItem qi;
-	queueItem result;
-	result.utilid = NULL;
-	result.pData = NULL;
-	result.pDecode = NULL;
-	result.pWaitHandle = NULL;
-	result.pReturn = NULL;
-	result.pNext = NULL;
-	result.pPrevious = NULL;
+	pqueueItem qi = NULL;
 
 	if (g->QueueStart != NULL)
 	{
@@ -351,28 +344,26 @@ static queueItem queuePopUnlocked(pglobalRecord g, putilRecord utilid)
 
 		if (qi != NULL) 
 		{
-			result = *qi;
 			// dismiss item from linked list
 			if (qi == g->QueueStart) g->QueueStart = qi->pNext;
 			if (qi == g->QueueEnd) g->QueueEnd = qi->pPrevious;
-			if (result.pPrevious != NULL) result.pPrevious->pNext = result.pNext;
-			if (result.pNext != NULL) result.pNext->pPrevious = result.pPrevious;
-			free(qi);		// release queueItem memory
+			if (qi->pPrevious != NULL) qi->pPrevious->pNext = qi->pNext;
+			if (qi->pNext != NULL) qi->pNext->pPrevious = qi->pPrevious;
 			// cleanup results
-			result.pNext = NULL;
-			result.pPrevious = NULL;
+			qi->pNext = NULL;
+			qi->pPrevious = NULL;
 			g->QueueCount -= 1;
 		}
 	}
 
-	return result;
+	return qi; //result;
 }
 
 // Pop item from the queue (protected using locks)
 // see queuePopUnlocked()
-static queueItem queuePop(pglobalRecord g, putilRecord utilid)
+static pqueueItem queuePop(pglobalRecord g, putilRecord utilid)
 {
-	queueItem result;
+	pqueueItem result;
 	DSS_mutexLockx(&(g->lock));
 	result = queuePopUnlocked(g, utilid);
 	DSS_mutexUnlockx(&(g->lock));
@@ -682,7 +673,7 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 static int DSS_unregister_1v0(putilRecord utilid)
 {
 	pglobalRecord g;
-	queueItem qi;
+	pqueueItem nqi = NULL;
 	pqueueItem pqi = NULL;
 
 #ifdef _DEBUG
@@ -703,17 +694,20 @@ static int DSS_unregister_1v0(putilRecord utilid)
 	if (utilid->pPrevious != NULL) utilid->pPrevious->pNext = utilid->pNext;
 
 	// cancel all items still in the queue
-	qi = queuePop(g, utilid);
-	while (qi.pDecode != NULL)
+	pqi = queuePop(g, utilid);
+	while (pqi != NULL)
 	{
-		qi.pDecode(NULL, qi.pData, utilid);	// no LuaState, use NULL to indicate cancelling
-		if (qi.pWaitHandle != NULL)
+		if (pqi->pDecode != NULL)
+		{
+			pqi->pDecode(NULL, pqi->pData, utilid);	// no LuaState, use NULL to indicate cancelling
+		}
+		if (pqi->pWaitHandle != NULL)
 		{
 			// release and delete waithandle
-			DSS_waithandle_signal(qi.pWaitHandle);
+			DSS_waithandle_signal(pqi->pWaitHandle);
 			//DSS_waithandle_delete(qi.pWaitHandle);	will be destroyed by the waiting thread
 		}
-		qi = queuePop(g, utilid);		// get next one
+		pqi = queuePop(g, utilid);		// get next one
 	}
 
 	// Cancel all items stored in userdatas
@@ -745,10 +739,18 @@ static int DSS_unregister_1v0(putilRecord utilid)
 				pqi->pReturn(NULL, pqi->pData, pqi->utilid, FALSE);
 				pqi->pReturn = NULL;	// set to done, so GC can collect without calling again
 			}
+			if (pqi->pWaitHandle != NULL)
+			{
+				// release waithandle
+				DSS_waithandle_signal(pqi->pWaitHandle);
+			}
 		}
 
-		// move to next item in list
+		// move to next item in list and free resources
+		nqi = pqi;
 		pqi = pqi->pNext;
+		if (nqi->udata != NULL) (*(nqi->udata)) = NULL;  // clear userdata pointer to this qi
+		free(nqi);
 	}
 
 	// free resources
@@ -812,8 +814,8 @@ static int L_poll(lua_State *L)
 	int cnt = 0;
 	int res = 0;
 	int err = DSS_SUCCESS;
-	queueItem qi;
-	pqueueItem qi2;
+	pqueueItem qi;
+	pqueueItem* qi2;
 
 	lua_settop(L, 0);		// clear stack
 
@@ -823,46 +825,48 @@ static int L_poll(lua_State *L)
 	qi = queuePopUnlocked(g, DSS_LASTITEM);
 	cnt = g->QueueCount;
 	DSS_mutexUnlockx(&(g->lock));
-	if (qi.pDecode != NULL)
+	if (qi != NULL && qi->pDecode != NULL)
 	{
 		// keep utillock while calling this to prevent unregistering util meanwhile
 		// In this construct utilid will be valid!
 		// execute callback
-		res = qi.pDecode(L, qi.pData, qi.utilid);	
+		res = qi->pDecode(L, qi->pData, qi->utilid);	
 	}
 
-	if (qi.pDecode != NULL)
+	if (qi != NULL && qi->pDecode != NULL)
 	{
-		qi.pDecode = NULL;				// set to NULL to indicate call is done
+		qi->pDecode = NULL;				// set to NULL to indicate call is done
 		if (res < 1)	// indicator transaction is complete, do NOT create the userdata and do not call return callback
 		{
-			qi.pReturn = NULL;
-			if (qi.pWaitHandle != NULL)
+			qi->pReturn = NULL;
+			if (qi->pWaitHandle != NULL)
 			{
-				DSS_waithandle_signal(qi.pWaitHandle);
+				DSS_waithandle_signal(qi->pWaitHandle);
 				//DSS_waithandle_delete(qi.pWaitHandle);	will be destroyed by the waiting thread
-				qi.pWaitHandle = NULL;
+				qi->pWaitHandle = NULL;
 			}
 			lua_pushinteger(L, cnt);	// add count to results
+			free(qi); // No need to clear userdata, wasn't created yet in this case
 			DSS_mutexUnlockx(&utillock);
 			return 1;					// Only count is returned
 		}
 		lua_checkstack(L, 2);
-		if (qi.pReturn != NULL)
+		if (qi->pReturn != NULL)
 		{
 			// Create userdata to store the queueitem
-			qi2 = (pqueueItem)lua_newuserdata(L, sizeof(queueItem));
+			qi2 = (pqueueItem*)lua_newuserdata(L, sizeof(pqueueItem));
 			if (qi2 == NULL)
 			{
 				// memory allocation error, exit process here
-				qi.pReturn(NULL, qi.pData, qi.utilid, FALSE); // call with lua_State == NULL to have it cancelled
-				DSS_waithandle_signal(qi.pWaitHandle);
+				qi->pReturn(NULL, qi->pData, qi->utilid, FALSE); // call with lua_State == NULL to have it cancelled
+				DSS_waithandle_signal(qi->pWaitHandle);
 				//DSS_waithandle_delete(qi.pWaitHandle);	will be destroyed by the waiting thread
+				free(qi);
 				lua_pushinteger(L, cnt);	// add count to results
 				DSS_mutexUnlockx(&utillock);
 				return 1;					// Only count is returned
 			}
-			*qi2 = qi;	// copy contents to the userdata
+			qi2 = &qi;	// copy contents (pointer only) to the userdata
 
 			// attach metatable
 			luaL_getmetatable(L, DSS_QUEUEITEM_MT);
@@ -875,9 +879,12 @@ static int L_poll(lua_State *L)
 				DSS_mutexUnlockx(&utillock);
 				return luaL_error(L, "DSS: Internal error, global record is not available while QueueItems are still around (move to userdata)!!");
 			}
-			qi2->pNext = g->UserdataStart;
-			qi2->pPrevious = NULL;
-			if (qi2->pNext != NULL) qi2->pNext->pPrevious = qi2;
+			qi->pNext = g->UserdataStart;
+			qi->pPrevious = NULL;
+			if (qi->pNext != NULL) qi->pNext->pPrevious = qi;
+
+			// set reference to userdata
+			qi->udata = qi2;
 
 			// Move userdata (on top) to 2nd position, directly after the lua callback function
 			if (lua_gettop(L) > 2 ) lua_insert(L, 2);
@@ -903,13 +910,23 @@ static int L_return_internal(lua_State *L, BOOL garbage)
 	int res = 0;
 	int err = DSS_SUCCESS;
 	pglobalRecord g = NULL;
-	pqueueItem qi = (pqueueItem)luaL_checkudata(L, 1, DSS_QUEUEITEM_MT);	// first item must be our queue item
+	pqueueItem* rqi = (pqueueItem*)luaL_checkudata(L, 1, DSS_QUEUEITEM_MT);	// first item must be our queue item
+	pqueueItem qi = NULL;
 	lua_remove(L, 1);	// remove userdata from stack
 
 	DSS_mutexLockx(&utillock);
+	if ((*rqi) == NULL)
+	{
+		// we're already done, go exit
+		DSS_mutexUnlockx(&utillock);
+		return 0;
+	}
+	qi = (*rqi);
 	if (qi->pReturn == NULL)
 	{
 		// No more return function so the queueitem has been cancelled, or been dealt with already, so it must be garbage
+		free(qi);
+		(*rqi) = NULL;	// TODO: release waithandle???
 		if (! garbage)
 		{
 			// its not garbage, so something went wrong
@@ -938,6 +955,8 @@ static int L_return_internal(lua_State *L, BOOL garbage)
 		g = DSS_getstateglobals(L, &err);
 		if (err != DSS_SUCCESS || g == NULL)
 		{
+			free(qi);	// TODO: release waithandle???
+			(*rqi) = NULL;
 			DSS_mutexUnlockx(&utillock);
 			return luaL_error(L, "DSS: Internal error, global record is not available while QueueItems are still around (finish userdata)!!");
 		}
@@ -964,6 +983,10 @@ static int L_return_internal(lua_State *L, BOOL garbage)
 		//DSS_waithandle_delete(qi->pWaitHandle);	will be destroyed by the waiting thread
 		qi->pWaitHandle = NULL;
 	}
+
+	// let go of resources
+	free(qi);
+	(*rqi) = NULL;
 
 	DSS_mutexUnlockx(&utillock);
 	return res;

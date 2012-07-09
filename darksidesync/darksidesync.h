@@ -64,6 +64,7 @@ typedef struct qItem {
 		void* pData;				// Data to be decoded
 		pqueueItem pNext;			// Next item in queue/list
 		pqueueItem pPrevious;		// Previous item in queue/list
+		pqueueItem* udata;			// a userdata containing a pointer to this qItem
 	} queueItem;
 
 // structure for state global variables to be stored outside of the LuaState
