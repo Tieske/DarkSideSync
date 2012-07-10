@@ -48,7 +48,7 @@ OutputDebugStringA("LuaExit: unloading completed\n");
 	// pData is always NULL in this case, because we only handle
 	// SIGTERM & SIGINT signal, so push constant string
 	// @returns; as with Lua function, return number of args on the stack to return
-	int signalDecoder (lua_State *L, void *pData, void *utilid)
+	int signalDecoder (lua_State *L, void *pData, void *pUtilData, void *utilid)
 	{
 		if (L == NULL)
 		{

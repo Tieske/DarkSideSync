@@ -19,7 +19,7 @@
 */
 // Init network
 // return 1 upon success
-int DSS_networkInit()
+int udpsocket_networkInit()
 {
 	int result = 1;
 	#ifdef WIN32
@@ -29,7 +29,7 @@ int DSS_networkInit()
 }
 
 // Shutdown network
-void DSS_networkStop()
+void udpsocket_networkStop()
 {
 	#ifdef WIN32
 		WSACleanup();
@@ -37,7 +37,7 @@ void DSS_networkStop()
 }
 
 // Close socket
-void DSS_socketClose(DSS_socket_t s)
+void udpsocket_close(udpsocket_t s)
 {
 	if (s.udpsock != INVALID_SOCKET)
 	{
@@ -54,9 +54,9 @@ void DSS_socketClose(DSS_socket_t s)
 // Create a new socket
 // return socket struct, failed if member; udpsock == INVALID_SOCKET
 // Port == 0 always fails
-DSS_socket_t DSS_socketNew(int port)
+udpsocket_t udpsocket_new(int port)
 {
-	DSS_socket_t s;
+	udpsocket_t s;
 	struct hostent *hp;
 	s.udpsock = INVALID_SOCKET;
 
@@ -127,7 +127,7 @@ DSS_socket_t DSS_socketNew(int port)
 }
 
 // Sends packet, failure reported as 0, failure closes socket
-int DSS_socketSend(DSS_socket_t s, char *pData)
+int udpsocket_send(udpsocket_t s, char *pData)
 {
 	if (s.udpsock != INVALID_SOCKET)
 	{

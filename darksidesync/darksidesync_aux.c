@@ -6,7 +6,7 @@
 // static pointer to itself, uniquely identifies this library
 static void* DSS_LibID = &DSS_LibID;
 // Static pointer to the DSS api, will be set by the initialize function below
-static pDSS_api_1v0_t DSSapi = NULL;	// TODO: static, so it is not state independent!! add to utilid struct? must make utilid public then...
+static pDSS_api_1v0_t DSSapi = NULL;	// Static no issue, because version 1v0 is same in all libraries
 
 // will get the api struct (pointer) for the api version 1v0
 // in case of errors it will provide a proper error message and call 

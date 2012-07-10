@@ -40,7 +40,7 @@
 
 // first forward declare these to resolve circular references
 typedef struct utilReg *putilRecord;
-typedef struct qItem *pqueueItem;
+typedef struct qItem *pQueueItem;
 typedef struct stateGlobals *pglobalRecord;
 
 // structure for registering utilities
@@ -58,29 +58,30 @@ typedef struct utilReg {
 //       while waiting for 'return' callback, it will be in a userdata
 typedef struct qItem {
 		putilRecord utilid;			// unique ID to utility
-		DSS_decoder_1v0_t pDecode;	// Pointer to the decode function, if NULL then it was already called
-		DSS_return_1v0_t pReturn;	// Pointer to the return function
 		pDSS_waithandle pWaitHandle; // Wait handle to block thread while wait for return to be called
 		void* pData;				// Data to be decoded
-		pqueueItem pNext;			// Next item in queue/list
-		pqueueItem pPrevious;		// Previous item in queue/list
-		pqueueItem* udata;			// a userdata containing a pointer to this qItem
-	} queueItem;
+		pQueueItem pNext;			// Next item in queue/list
+		pQueueItem pPrevious;		// Previous item in queue/list
+		pQueueItem* udata;			// a userdata containing a pointer to this qItem
+		// API functions at the end, so casting of future versions can be done
+		DSS_decoder_1v0_t pDecode;	// Pointer to the decode function, if NULL then it was already called
+		DSS_return_1v0_t pReturn;	// Pointer to the return function
+	} QueueItem;
 
 // structure for state global variables to be stored outside of the LuaState
 // this is required to be able to access them from an async callback
 // (which cannot call into lua to collect global data there)
 typedef struct stateGlobals {
-		DSS_mutex_t lock;					// lock to protect struct data
+		//DSS_mutex_t lock;					// lock to protect struct data
 		int volatile udpport;				// 0 = no notification
-		DSS_socket_t socket;				// structure with socket data
+		udpsocket_t socket;				// structure with socket data
 		int volatile DSS_status;			// Status of library
 		// Elements for the async data queue
-		pqueueItem volatile QueueStart;		// Holds first element in the queue
-		pqueueItem volatile QueueEnd;		// Holds the last item in the queue
+		pQueueItem volatile QueueStart;		// Holds first element in the queue
+		pQueueItem volatile QueueEnd;		// Holds the last item in the queue
 		int volatile QueueCount;			// Count of items in queue
 		// Elements for the userdata list
-		pqueueItem volatile UserdataStart;  // Holds first element in the list
+		pQueueItem volatile UserdataStart;  // Holds first element in the list
 	} globalRecord;
 
 

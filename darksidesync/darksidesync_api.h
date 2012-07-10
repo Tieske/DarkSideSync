@@ -20,7 +20,8 @@
 // for decoding this pData and take appropriate action.
 // @arg1; the Lua state (or NULL if items are being cancelled)
 // @arg2; the pData previously delivered. 
-// @arg3; the unique utility ID for which the call is being made (in case
+// @arg3; the utilid related pData (see DSS_getdata/DSS_setdata)
+// @arg4; the unique utility ID for which the call is being made (in case
 // the utility has been 'required' in multiple parallel lua states)
 // If @arg1 is NULL, then resources should be released to cleanup, upon
 // returning the waiting thread will be released.
@@ -33,7 +34,7 @@
 //    0 ;cycle complete, do not create userdata and release the waiting thread (if set to wait)
 // if 0 the DSS process for this callback stops here, so any resources should be released here
 // before returning, or by the blocked thread after it is released.
-typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* utilid);
+typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, void* utilid);
 
 // The backgroundworker must provide this function. The function
 // will get a pointer to previously delivered pData and is responsible
@@ -42,16 +43,17 @@ typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* utilid);
 // When this function returns the blocked thread will be released.
 // @arg1; the Lua state (or NULL if items are being cancelled)
 // @arg2; the pData previously delivered. 
-// @arg3; the unique utility ID for which the call is being made (in case
+// @arg3; the utilid related pData (see DSS_getdata/DSS_setdata)
+// @arg4; the unique utility ID for which the call is being made (in case
 //        the utility has been 'required' in multiple parallel lua states)
-// @arg4; BOOL indicating (TRUE) whether the function was called from the
+// @arg5; BOOL indicating (TRUE) whether the function was called from the
 //        __GC method of the userdata.
 // returns: number of lua args on stack
 // NOTE: 1) This is the final call, so any resources must be released here, or 
 //          by the unblocked thread
 //       2) Must always return; do not use code that causes longjumps etc. like 
 //          luaL_error etc.
-typedef int (*DSS_return_1v0_t) (lua_State *L, void* pData, void* utilid, int garbage);
+typedef int (*DSS_return_1v0_t) (lua_State *L, void* pData, void* pUtilData, void* utilid, int garbage);
 
 // The backgroundworker must provide this function. A pointer
 // to this method should be provided when calling the DSS_register function.
@@ -75,7 +77,7 @@ typedef void (*DSS_cancel_1v0_t) (void* utilid, void* pData);
 // @arg3; pointer to a return function (see DSS_decoder_t above)
 // @arg4; pointer to some piece of data.
 // @returns; DSS_SUCCESS, DSS_ERR_INVALID_UTILID, DSS_ERR_UDP_SEND_FAILED, 
-// DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED
+// DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED, DSS_ERR_NO_DECODE_PROVIDED
 // NOTE1: DSS_ERR_UDP_SEND_FAILED means that the data was still delivered to the
 //        queue, only the notification failed, for the other errors, it will not be
 //        queued.
@@ -155,7 +157,7 @@ typedef struct DSS_api_1v0_s {
 #define DSS_ERR_NOT_STARTED -4			// DSS hasn't been started, or was already stopping/stopped
 #define DSS_ERR_NO_CANCEL_PROVIDED -5	// When registering the cancel method is required
 #define DSS_ERR_OUT_OF_MEMORY -6		// memory allocation failed
-#define DSS_ERR_INIT_MUTEX_FAILED -7	// initialization of mutex failed
+#define DSS_ERR_NO_DECODE_PROVIDED -7	// no decode function provided when delivering
 #define DSS_ERR_NO_GLOBALS -8			// LuaState does not have a global record
 #define DSS_ERR_UNKNOWN_LIB -9			// The library requesting its utildid is unregistered
 #define DSS_ERR_ALREADY_REGISTERED -10	// trying to register the same lib, in the same lua state again

@@ -98,6 +98,7 @@
   <ItemGroup>
     <ClCompile Include="darksidesync.c" />
     <ClCompile Include="darksidesync_aux.c" />
+    <ClCompile Include="delivery.c" />
     <ClCompile Include="locking.c" />
     <ClCompile Include="udpsocket.c" />
     <ClCompile Include="waithandle.c" />
@@ -113,6 +114,7 @@
   <ItemGroup>
     <ClInclude Include="darksidesync.h" />
     <ClInclude Include="darksidesync_api.h" />
+    <ClInclude Include="delivery.h" />
     <ClInclude Include="locking.h" />
     <ClInclude Include="udpsocket.h" />
     <ClInclude Include="waithandle.h" />

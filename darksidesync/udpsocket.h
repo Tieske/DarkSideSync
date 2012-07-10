@@ -13,22 +13,22 @@
 #endif
 
 // socket structure
-typedef struct DSS_socket {
+typedef struct udpsocket {
 	#ifdef WIN32
 		SOCKET udpsock;	
 	#else  // Unix
 		int udpsock;	
 	#endif
 	struct sockaddr_in receiver_addr;
-} DSS_socket_t;
+} udpsocket_t;
 
 // Init / teardown network
-int DSS_networkInit();
-void DSS_networkStop();
+int udpsocket_networkInit();
+void udpsocket_networkStop();
 
 // Socket operations
-DSS_socket_t DSS_socketNew(int port);
-void DSS_socketClose(DSS_socket_t s);
-int DSS_socketSend(DSS_socket_t s, char *pData);
+udpsocket_t udpsocket_new(int port);
+void udpsocket_close(udpsocket_t s);
+int udpsocket_send(udpsocket_t s, char *pData);
 
 #endif  /* dss_udpsocket_h */
