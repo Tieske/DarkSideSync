@@ -48,6 +48,9 @@ typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, vo
 //        the utility has been 'required' in multiple parallel lua states)
 // @arg5; BOOL indicating (TRUE) whether the function was called from the
 //        __GC method of the userdata.
+// @arg-Lua; on the Lua stack will be the parameters provided when calling the
+//           'return' function, the userdata (1st arg) will have been removed 
+//			 from the stack. 
 // returns: number of lua args on stack
 // NOTE: 1) This is the final call, so any resources must be released here, or 
 //          by the unblocked thread

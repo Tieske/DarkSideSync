@@ -204,6 +204,10 @@ int delivery_return(pQueueItem pqi, lua_State *L, BOOL garbage)
 	pqi->pNext = NULL;
 	pqi->pPrevious = NULL;
 
+	// Cleanup userdata
+	(*(pqi->udata)) = NULL;	// set reference in userdata to NULL, indicate its done
+	lua_remove(L, 1);	// remove the userdata from the stack
+
 	// now execute callback, here the utility should release all resources
 	result = pqi->pReturn(L, pqi->pData, pqi->utilid->pUtilData, pqi->utilid, garbage);	
 	// Cleanup queueitem
@@ -216,7 +220,6 @@ int delivery_return(pQueueItem pqi, lua_State *L, BOOL garbage)
 	}
 
 	// let go of own resources
-	(*(pqi->udata)) = NULL;	// set reference in userdata to NULL
 	free(pqi);
 
 	return result;
