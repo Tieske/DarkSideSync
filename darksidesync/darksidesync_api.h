@@ -127,6 +127,8 @@ typedef void* (*DSS_getutilid_1v0_t) (lua_State *L, void* libid, int* errcode);
 // @arg5; int pointer that will receive the error code, or DSS_SUCCESS if no error (param may be NULL)
 // @returns; unique ID (for the utility to use in other calls), or NULL and error
 // DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, DSS_ERR_OUT_OF_MEMORY, DSS_ERR_ALREADY_REGISTERED
+// NOTE: if the utility was already registered, it will return the existing ID, 
+//       but it will ignore all provided parameters (nothing will be changed)
 typedef void* (*DSS_register_1v0_t) (lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, void* pData, int* errcode);
 
 // The background worker should call this to unregister itself on

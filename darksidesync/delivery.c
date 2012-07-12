@@ -157,7 +157,7 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 			return 1;					// Only count is returned
 		}
 		// Set cross references
-		udata = &pqi;		// fill userdata with reference to queueitem
+		*udata = pqi;		// fill userdata with reference to queueitem
 		pqi->udata = udata;	// set reference to userdata in queueitem
 
 		// attach metatable

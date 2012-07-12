@@ -470,6 +470,8 @@ static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 // calls to DSS, or NULL if it failed.
 // Failure reasons; DSS_ERR_NOT_STARTED, DSS_ERR_NO_CANCEL_PROVIDED, 
 //                  DSS_ERR_ALREADY_REGISTERED, DSS_ERR_OUT_OF_MEMORY
+// NOTE: if the lib was already registered, it will return the existing ID, 
+//       but it will ignore all provided parameters (nothing will be changed)
 static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, void* pData, int* errcode)
 {
 	putilRecord util;
@@ -489,11 +491,12 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 		return NULL; 
 	}
 
-	if (DSS_getutilid_1v0(L, libid, NULL) != NULL)
+	util = (putilRecord)DSS_getutilid_1v0(L, libid, NULL);
+	if (util != NULL)
 	{
 		// We got an ID returned, so this lib is already registered
 		*errcode = DSS_ERR_ALREADY_REGISTERED;
-		return NULL;
+		return util;	// don't change anything, but return existing id
 	}
 
 	DSS_mutex_lock(&dsslock);
@@ -771,7 +774,7 @@ OutputDebugStringA("DSS: LuaOpen started...\n");
 	lua_pushstring(L, "__gc");
 	lua_pushcfunction(L, &L_queueItemGC);
 	lua_settable(L, -3);
-	lua_pushstring(L, "return");
+	lua_pushstring(L, "setresult");		// used to be called 'return' but thats a reserved word in Lua
 	lua_pushcfunction(L, &L_return);
 	lua_settable(L, -3);
 

@@ -21,7 +21,7 @@ pDSS_waithandle DSS_waithandle_create()
 		return NULL;
 	}
 	wh->semaphore = CreateSemaphore(NULL, 0, 1, NULL);
-	DSS_waithandle_signal(wh);
+	DSS_waithandle_reset(wh);
 	return wh;
 }
 
@@ -33,7 +33,7 @@ pDSS_waithandle DSS_waithandle_create()
 void DSS_waithandle_reset(pDSS_waithandle wh)
 {
 	if (wh != NULL) {
-		// to reset, first release by 1, has no effect if already releases
+		// to reset, first release by 1, has no effect if already released
 		ReleaseSemaphore(wh->semaphore,1, NULL);
 		// now wait 1, effectively reducing to 0 and hence closing
 		WaitForSingleObject(wh->semaphore, INFINITE);
