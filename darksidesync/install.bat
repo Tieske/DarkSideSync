@@ -7,7 +7,7 @@ REM ===================================================
 SET T_LUAPATH=C:\Users\Public\lua\5.1
 
 echo Copying file 'darksidesync.dll'
-copy "..\debug\darksidesync.dll" "%T_LUAPATH%\clibs"
+copy "..\debug\darksidesync.*" "%T_LUAPATH%\clibs"
 
 echo Copying file 'dss.lua'
 copy "dss.lua" "%T_LUAPATH%\lua"

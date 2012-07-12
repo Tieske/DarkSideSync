@@ -168,6 +168,7 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 		pqi->pNext = g->UserdataStart;
 		pqi->pPrevious = NULL;
 		if (pqi->pNext != NULL) pqi->pNext->pPrevious = pqi;
+		g->UserdataStart = pqi;
 
 		// Move userdata (on top) to 2nd position, directly after the lua callback function
 		if (lua_gettop(L) > 2 ) lua_insert(L, 2);
