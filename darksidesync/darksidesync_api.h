@@ -83,7 +83,7 @@ typedef void (*DSS_cancel_1v0_t) (void* utilid, void* pData);
 // DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED, DSS_ERR_NO_DECODE_PROVIDED
 // NOTE1: DSS_ERR_UDP_SEND_FAILED means that the data was still delivered to the
 //        queue, only the notification failed, for the other errors, it will not be
-//        queued.
+//        queued (see return codes for warnings vs errors).
 // NOTE2: edgecase due to synchronization, when delivering while DSS is stopping
 //        DSS_ERR_INVALID_UTILID may be returned, even if cancel() was not called
 //        yet, so this should always be checked
@@ -156,14 +156,19 @@ typedef struct DSS_api_1v0_s {
 //////////////////////////////////////////////////////////////
 // C side DSS return codes									//
 //////////////////////////////////////////////////////////////
-#define DSS_SUCCESS -1					// success
-#define DSS_ERR_INVALID_UTILID -2		// provided ID does not exist/invalid
-#define DSS_ERR_UDP_SEND_FAILED -3		// notification failed due to UDP/socket error
-#define DSS_ERR_NOT_STARTED -4			// DSS hasn't been started, or was already stopping/stopped
-#define DSS_ERR_NO_CANCEL_PROVIDED -5	// When registering the cancel method is required
-#define DSS_ERR_OUT_OF_MEMORY -6		// memory allocation failed
-#define DSS_ERR_NO_DECODE_PROVIDED -7	// no decode function provided when delivering
-#define DSS_ERR_NO_GLOBALS -8			// LuaState does not have a global record
-#define DSS_ERR_UNKNOWN_LIB -9			// The library requesting its utildid is unregistered
-#define DSS_ERR_ALREADY_REGISTERED -10	// trying to register the same lib, in the same lua state again
+// Warnings are informative, errors should be dealt with
+// Example; DSS_ERR_UDP_SEND_FAILED usually means that a notification
+//          was not send, but the element was handled properly.
+#define DSS_SUCCESS -100				// success
+// Warnings > DSS_SUCCESS
+#define DSS_ERR_UDP_SEND_FAILED -99		// notification failed due to UDP/socket error
+// Errors < DSS_SUCCESS
+#define DSS_ERR_INVALID_UTILID -101		// provided ID does not exist/invalid
+#define DSS_ERR_NOT_STARTED -102		// DSS hasn't been started, or was already stopping/stopped
+#define DSS_ERR_NO_CANCEL_PROVIDED -103	// When registering the cancel method is required
+#define DSS_ERR_OUT_OF_MEMORY -104		// memory allocation failed
+#define DSS_ERR_NO_DECODE_PROVIDED -105	// no decode function provided when delivering
+#define DSS_ERR_NO_GLOBALS -106			// LuaState does not have a global record
+#define DSS_ERR_UNKNOWN_LIB -107		// The library requesting its utildid is unregistered
+#define DSS_ERR_ALREADY_REGISTERED -108	// trying to register the same lib, in the same lua state again
 #endif /* darksidesync_api_h */

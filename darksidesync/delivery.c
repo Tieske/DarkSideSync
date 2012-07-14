@@ -10,7 +10,7 @@
 //           DSS_ERR_OUT_OF_MEMORY, DSS_ERR_NOT_STARTED
 //
 // Notes:
-//    * if it returns an element, the result may still be DSS_ERR_UDP_SEND_FAILED
+//    * if it returns an element, the result may still be a warning (see return codes; errors vs warnings)
 //    * Utilid MUST be valid before calling
 
 pQueueItem delivery_new(putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData, int* err)
