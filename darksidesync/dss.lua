@@ -36,8 +36,13 @@ local createsocket = function()
 end
 
 -- default error handler, see dss.seterrorhandler() below
-local ehandler = function()
-    print (debug.traceback("DSS error: callback function had an error;\n"))
+local ehandler = function(msg)
+    if msg then
+        msg = tostring(msg) .. "\n" .. debug.traceback("DSS error: callback function had an error;\n")
+    else
+        msg = debug.traceback("DSS error: callback function had an error;\n")
+    end
+    print (msg)
 end
 
 -- argument rotate left (remove 1st in list)
