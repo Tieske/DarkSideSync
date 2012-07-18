@@ -34,12 +34,16 @@
 //    0 ;cycle complete, do not create userdata and release the waiting thread (if set to wait)
 // if 0 the DSS process for this callback stops here, so any resources should be released here
 // before returning, or by the blocked thread after it is released.
+// NOTE: the Lua code should at some point call 'setresult' on the userdata. This will
+//       trigger the 'return' function below.
 typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, void* utilid);
 
 // The backgroundworker must provide this function. The function
 // will get a pointer to previously delivered pData and is responsible
 // for retrieving Lua results and store them in pData, so the initial calling
 // (and currently blocked) thread can handle the results when released.
+// This function is called when 'setresult' is called on the userdata returned
+// from the 'deliver' function.
 // When this function returns the blocked thread will be released.
 // @arg1; the Lua state (or NULL if items are being cancelled)
 // @arg2; the pData previously delivered. 
@@ -49,7 +53,7 @@ typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, vo
 // @arg5; BOOL indicating (TRUE) whether the function was called from the
 //        __GC method of the userdata.
 // @arg-Lua; on the Lua stack will be the parameters provided when calling the
-//           'return' function, the userdata (1st arg) will have been removed 
+//           'setresult' function, the userdata (1st arg) will have been removed 
 //			 from the stack. 
 // returns: number of lua args on stack
 // NOTE: 1) This is the final call, so any resources must be released here, or 
