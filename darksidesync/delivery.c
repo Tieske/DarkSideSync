@@ -101,7 +101,8 @@ pQueueItem delivery_new(putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_retur
 // removes an item from the queue and deals with the POLL step.
 // the decode callback will be called to do what needs to be done
 // returns (on Lua stack): 
-// 1st: queuesize of remaining items
+// 1st: queuesize of remaining items or;
+//      -1 to indicate there was nothing in the queue to begin with
 // 2nd: lua callback function to handle the data
 // 3rd: userdata waiting for the response (only of a 'return' call is still valid)
 // 4th+: any stuff left by decoder after the callback function (2nd above)
@@ -153,7 +154,7 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 			DSS_waithandle_signal(pqi->pWaitHandle);
 			free(pqi);
 			lua_pushinteger(L, pqi->utilid->pGlobals->QueueCount);	// add count to results
-			// TODO: push an error to notify of failure???
+			// push an error to notify of failure???
 			return 1;					// Only count is returned
 		}
 		// Set cross references
