@@ -15,23 +15,30 @@ Whenever a background thread has some data to deliver it will call a DSS method 
 
 There is an optional notification using a UDP packet, which is an easy way to wake up Lua from a select network method.
 
+Reference
+---------
+Documentation can be found in the repository and on the GitHub page; http://tieske.github.com/DarkSideSync
+
 Positive
 --------
 * It is very generic and cross platform. Because DSS takes care of threads, locks and (optionally) sockets, a library binding for an async library may require no platform specific code and still work cross-platform
 * It is setup as a separate library, loaded from Lua, no C links. It, sort of, dynamically extends the Lua C api
+* Supports async callbacks that only deliver data (the callback thread is not blocked)
+* Supports async callbacks that need a response (the callback thread is blocked until the Lua side response has been delivered)
 * Supports multiple async background libraries simultaneously
 * Supports multiple concurrent Lua states
 * It has been setup with the intend to support multiple versions of the DSS API, so in the future multiple background libraries can use a single DSS library, while talking to different versions of the API
-* The notification (though UDP is overhead heavy) is also platform independent and even network library independent (eg. not bound to luasockets) any network library supporting UDP will do (this is the reason for not using file descriptors or pipes)
+* The notification is also platform independent and even network library independent (eg. not bound to luasockets) any network library supporting UDP will do (this is the reason for not using file descriptors or pipes)
 
 Negative
 --------
 * overhead in general, because of the support for multiple Lua States and multiple libraries some lookups and checks are required for each callback
-* Notification using UDP packets requires quite some overhead, so for a very high number of callbacks it might be better to only use polling
+* Notification using UDP packets requires some overhead, so for a very high number of callbacks it might be better to only use polling
 
 Things to do
 ------------
-* currently it will only deliver data from a callback. If the callback requires some Lua processing and expects a return value, that is not supported (yet)
+* The wrapper code for sockets and locks is only working for Windows, other platforms have to be done
+* Building the library (make files or similar) needs to be done, including a rockspec file for LuaRocks
 
 Copyright & License
 -------------------
