@@ -7,12 +7,12 @@
 // Setup version information
 #define DSS_VERSION "0.1"
 // Define global names for the Lua registry
-#define DSS_REGISTRY_NAME "DSS.DarkSideSync"	// key to registry to where DSS will store its API's
-#define DSS_VERSION_KEY "Version"				// key to version info within DSS table
-#define DSS_API_1v0_KEY "DSS API 1v0"			// key to struct with this API version (within DSS table), also used as version string in API struct
+#define DSS_REGISTRY_NAME "DSS.DarkSideSync"    // key to registry to where DSS will store its API's
+#define DSS_VERSION_KEY "Version"               // key to version info within DSS table
+#define DSS_API_1v0_KEY "DSS API 1v0"           // key to struct with this API version (within DSS table), also used as version string in API struct
 
 //////////////////////////////////////////////////////////////
-// C side prototypes, implemented by background worker		//
+// C side prototypes, implemented by background worker      //
 //////////////////////////////////////////////////////////////
 
 // The backgroundworker must provide this function. The function
@@ -54,7 +54,7 @@ typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, vo
 //        __GC method of the userdata.
 // @arg-Lua; on the Lua stack will be the parameters provided when calling the
 //           'setresult' function, the userdata (1st arg) will have been removed 
-//			 from the stack. 
+//           from the stack. 
 // returns: number of lua args on stack
 // NOTE: 1) This is the final call, so any resources must be released here, or 
 //          by the unblocked thread
@@ -73,7 +73,7 @@ typedef void (*DSS_cancel_1v0_t) (void* utilid, void* pData);
 
 
 //////////////////////////////////////////////////////////////
-// C side prototypes, implemented by DSS					//
+// C side prototypes, implemented by DSS                    //
 //////////////////////////////////////////////////////////////
 
 // The backgroundworker can call this function (see
@@ -124,7 +124,7 @@ typedef void* (*DSS_getutilid_1v0_t) (lua_State *L, void* libid, int* errcode);
 // The background worker should call this to register and get its ID
 // @arg1; pointer to LuaState
 // @arg2; ID for the library registering, can simply be;
-//          static void* myLibID = &myLibID;	// pointer to itself
+//        static void* myLibID = &myLibID;    // pointer to itself
 // @arg3; pointer to the background workers cancel() method
 // @arg4; pointer to data specific to the background worker and the LuaState
 // NOTE: it is up to the background worker to release any resources related to pData
@@ -147,32 +147,32 @@ typedef int (*DSS_unregister_1v0_t) (void* utilid);
 // Define structure to contain the API for version 1.0
 typedef struct DSS_api_1v0_s *pDSS_api_1v0_t;
 typedef struct DSS_api_1v0_s {
-		const char* version;
-		DSS_register_1v0_t reg;
-		DSS_getutilid_1v0_t getutilid;
-		DSS_deliver_1v0_t deliver;
-		DSS_getdata_1v0_t getdata;
-		DSS_setdata_1v0_t setdata;
-		DSS_unregister_1v0_t unreg;
-	} DSS_api_1v0_t;
+        const char* version;
+        DSS_register_1v0_t reg;
+        DSS_getutilid_1v0_t getutilid;
+        DSS_deliver_1v0_t deliver;
+        DSS_getdata_1v0_t getdata;
+        DSS_setdata_1v0_t setdata;
+        DSS_unregister_1v0_t unreg;
+    } DSS_api_1v0_t;
 
 
 //////////////////////////////////////////////////////////////
-// C side DSS return codes									//
+// C side DSS return codes                                  //
 //////////////////////////////////////////////////////////////
 // Warnings are informative, errors should be dealt with
 // Example; DSS_ERR_UDP_SEND_FAILED usually means that a notification
 //          was not send, but the element was handled properly.
-#define DSS_SUCCESS -100				// success
+#define DSS_SUCCESS -100                // success
 // Warnings > DSS_SUCCESS
-#define DSS_ERR_UDP_SEND_FAILED -99		// notification failed due to UDP/socket error
+#define DSS_ERR_UDP_SEND_FAILED -99     // notification failed due to UDP/socket error
 // Errors < DSS_SUCCESS
-#define DSS_ERR_INVALID_UTILID -101		// provided ID does not exist/invalid
-#define DSS_ERR_NOT_STARTED -102		// DSS hasn't been started, or was already stopping/stopped
-#define DSS_ERR_NO_CANCEL_PROVIDED -103	// When registering the cancel method is required
-#define DSS_ERR_OUT_OF_MEMORY -104		// memory allocation failed
-#define DSS_ERR_NO_DECODE_PROVIDED -105	// no decode function provided when delivering
-#define DSS_ERR_NO_GLOBALS -106			// LuaState does not have a global record
-#define DSS_ERR_UNKNOWN_LIB -107		// The library requesting its utildid is unregistered
-#define DSS_ERR_ALREADY_REGISTERED -108	// trying to register the same lib, in the same lua state again
+#define DSS_ERR_INVALID_UTILID -101     // provided ID does not exist/invalid
+#define DSS_ERR_NOT_STARTED -102        // DSS hasn't been started, or was already stopping/stopped
+#define DSS_ERR_NO_CANCEL_PROVIDED -103 // When registering the cancel method is required
+#define DSS_ERR_OUT_OF_MEMORY -104      // memory allocation failed
+#define DSS_ERR_NO_DECODE_PROVIDED -105 // no decode function provided when delivering
+#define DSS_ERR_NO_GLOBALS -106         // LuaState does not have a global record
+#define DSS_ERR_UNKNOWN_LIB -107        // The library requesting its utildid is unregistered
+#define DSS_ERR_ALREADY_REGISTERED -108 // trying to register the same lib, in the same lua state again
 #endif /* darksidesync_api_h */
