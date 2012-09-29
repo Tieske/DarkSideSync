@@ -1,19 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html>
+<html xmlns="http://www.w3.org/1999/xhtml"> 
 <head>
     <title>darksidesync: Module Index</title>
     <link rel="stylesheet" href="../luadoc.css" type="text/css" />
-	<!--meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/-->
+    <!--meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/-->
 </head>
 
 <body>
 <div id="container">
 
 <div id="product">
-	<div id="product_logo"></div>
-	<div id="product_name"><big><b></b></big></div>
-	<div id="product_description"></div>
+    <div id="product_logo"></div>
+    <div id="product_name"><big><b></b></big></div>
+    <div id="product_description"></div>
 </div> <!-- id="product" -->
 
 <div id="main">
@@ -21,7 +22,7 @@
 <div id="navigation">
 
 
-<h1>LuaDoc</h1>
+<h2>LuaDoc</h2>
 <ul>
 	
 	<li><a href="../index.html">Index</a></li>
@@ -31,7 +32,7 @@
 
 <!-- Module list -->
 
-<h1>Modules</h1>
+<h2>Modules</h2>
 <ul>
 
 	<li><strong>darksidesync</strong></li>
@@ -46,19 +47,6 @@
 
 <!-- File list -->
 
-<h1>Files</h1>
-<ul>
-
-	<li>
-		<a href="../files/darksidesync.html">darksidesync.lua</a>
-	</li>
-
-	<li>
-		<a href="../files/dss.html">dss.lua</a>
-	</li>
-
-</ul>
-
 
 
 
@@ -68,9 +56,9 @@
 
 <div id="content">
 
-<h1>Module <code>darksidesync</code></h1>
+<h1>Module "darksidesync"</h1>
 
-<p>DarkSideSync is a Lua helper module for asynchroneous callbacks from other libraries. Lua is single-threaded by nature and hence working with multithreaded libraries is a complex matter. DarkSideSync aim is to make using asynchroneous libraries simple. <br/>DarkSideSync takes away the complexity of messages queues, locking, synchronization, etc. because it implements them once and has a thread safe API to perform all those tasks, and notify Lua of incoming threads/data. It is a regular Lua module (C library) that can be loaded from Lua (no C-side dependencies/linking for any libraries using DarkSideSync) and it supports many libraries to consume its services simultaneously. <br/><br/><a href="../dss_overview.htm">Check here for an overview.</a> <br/><br/>It can only work with libraries designed to work with DarkSideSync. Check out the library source, specifically <a href="https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_api.h"><code>darksidesync_api.h</code></a> on how to do that. Additionally use <a href="https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_aux.c"><code>darksidesync_aux.c</code></a> to get up and running with DarkSideSync quickly (just an include of this file will get you 95% done) <br/>&nbsp<br/>To use the DarkSideSync library from Lua there are 2 options <ul><li>do not use notifications, but regularly call <a href="#poll"><code>poll()</code></a> to check for incomming data</li> <li>use the UDP notification mechanism (a LuaSocket implementation is available in <a href="../files/dss.html"><code>dss.lua</code></a>).</li></ul> The latter has UDP networking overhead but has some advantages; works with any network library and allows the application to 'go to sleep' in a network <code>select()</code> call. Additionally a UDP socket has the advantage (over a filehandle) that it works on most common platforms. In cases with a high number of callbacks the polling method is considered the better solution.</p>
+<p>DarkSideSync is a Lua helper module for asynchroneous callbacks from other libraries. Lua is single-threaded by nature and hence working with multithreaded libraries is a complex matter. DarkSideSync aim is to make using asynchroneous libraries simple. <br/>DarkSideSync takes away the complexity of messages queues, locking, synchronization, etc. because it implements them once and has a thread safe API to perform all those tasks, and notify Lua of incoming threads/data. It is a regular Lua module (C library) that can be loaded from Lua (no C-side dependencies/linking for any libraries using DarkSideSync) and it supports many libraries to consume its services simultaneously. <br/><br/><a href="../dss_overview.htm">Check here for an overview.</a> <br/><br/>It can only work with libraries designed to work with DarkSideSync. Check out the library source, specifically <a href="https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_api.h"><code>darksidesync_api.h</code></a> on how to do that. Additionally use <a href="https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_aux.c"><code>darksidesync_aux.c</code></a> to get up and running with DarkSideSync quickly (just an include of this file will get you 95% done) <br/>&nbsp;<br/>To use the DarkSideSync library from Lua there are 2 options </p><ul><li>do not use notifications, but regularly call <a href="#poll"><code>poll()</code></a> to check for incomming data</li> <li>use the UDP notification mechanism (a LuaSocket implementation is available in <a href="../files/dss.html"><code>dss.lua</code></a>).</li></ul><p> The latter has UDP networking overhead but has some advantages; works with any network library and allows the application to 'go to sleep' in a network <code>select()</code> call. Additionally a UDP socket has the advantage (over a filehandle) that it works on most common platforms. In cases with a high number of callbacks the polling method is considered the better solution.</p>
 
 
 <p>Copyright&copy; 2012 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license</p>
@@ -80,82 +68,42 @@
 
 
 
+
+
 <h2>Functions</h2>
 <table class="function_list">
 
-	<tr>
-	<td class="name" nowrap><a href="#[waitingthread].setresults">[waitingthread].setresults</a>&nbsp;(...)</td>
-	<td class="summary">Lua function to set the results of an async callback.</td>
-	</tr>
+    <tr>
+    <td class="name" nowrap><a href="#getport">getport</a>&nbsp;()</td>
+    <td class="summary">Lua function to get the UDP port currently in use for notifications, or 0 if UDP notifications are currently disabled.</td>
+    </tr>
 
-	<tr>
-	<td class="name" nowrap><a href="#getport">getport</a>&nbsp;()</td>
-	<td class="summary">Lua function to get the UDP port currently in use for notifications, or 0 if UDP notifications are currently disabled.</td>
-	</tr>
+    <tr>
+    <td class="name" nowrap><a href="#poll">poll</a>&nbsp;()</td>
+    <td class="summary">Lua function to get the next item from the queue.</td>
+    </tr>
 
-	<tr>
-	<td class="name" nowrap><a href="#poll">poll</a>&nbsp;()</td>
-	<td class="summary">Lua function to get the next item from the queue.</td>
-	</tr>
+    <tr>
+    <td class="name" nowrap><a href="#setport">setport</a>&nbsp;(port)</td>
+    <td class="summary">Lua function to set the UDP port for notifications.</td>
+    </tr>
 
-	<tr>
-	<td class="name" nowrap><a href="#setport">setport</a>&nbsp;(port)</td>
-	<td class="summary">Lua function to set the UDP port for notifications.</td>
-	</tr>
+    <tr>
+    <td class="name" nowrap><a href="#waitingthread.setresults">waitingthread.setresults</a>&nbsp;(...)</td>
+    <td class="summary">Lua function to set the results of an async callback.</td>
+    </tr>
 
 </table>
 
 
-
-
-
-
 <br/>
 <br/>
+
 
 
 
 <h2><a name="functions"></a>Functions</h2>
 <dl class="function">
-
-
-
-<dt><a name="[waitingthread].setresults"></a><strong>[waitingthread].setresults</strong>&nbsp;(...)</dt>
-<dd>
-Lua function to set the results of an async callback. The 'waiting-thread' userdata is collected from the <a href="#poll"><code>poll()</code></a> method in case a thread is blocked and waiting for a result. Call this function with the results to return to the async callback.
-
-
-<h3>Parameters:</h3>
-<ul>
-	
-	<li>
-	  <code><em>...</em></code>: parameters to be delivered to the async callback. This depends on what the client library expects
-	</li>
-	
-</ul>
-
-
-
-
-
-
-<h3>Return value:</h3>
-<ul>depends on client library implementation</ul>
-
-
-
-<h3>See also:</h3>
-<ul>
-	
-	<!-- <li><a href="#../modules/darksidesync.html#pollpoll"> -->
-	<li><a href="#poll">
-		poll</li>
-	</a>
-	
-</ul>
-
-</dd>
-
 
 
 
@@ -168,21 +116,29 @@ Lua function to get the UDP port currently in use for notifications, or 0 if UDP
 
 
 
-
-<h3>Return value:</h3>
-<ul>UDP port number</ul>
+<div>
 
 
+<h3 class="inline-block">Return value:</h3>
+UDP port number
+
+</div>
+
+
+
+<div>
 
 <h3>See also:</h3>
 <ul>
 	
-	<!-- <li><a href="#../modules/darksidesync.html#setportsetport"> -->
-	<li><a href="#setport">
-		setport</li>
-	</a>
+	<li><a href="../modules/darksidesync.html#setport">
+		setport
+	</a></li>
 	
 </ul>
+
+</div>
+
 
 </dd>
 
@@ -196,10 +152,18 @@ Lua function to get the next item from the queue. If you use the UDP notificatio
 
 
 
+<div>
 
-<h3>Usage:</h3>
-<ul><pre class=example>local runcallbacks()<br/>&nbsp&nbsplocal results = { darksidesync.poll() }<br/>&nbsp&nbsplocal count = results[1]<br/>&nbsp&nbsptable.remove(results, 1)<br/>&nbsp&nbsplocal callback = results[1]<br/>&nbsp&nbsptable.remove(results, 1)<br/>&nbsp&nbspif count == -1 then<br/>&nbsp&nbsp&nbsp&nbspreturn<br/>&nbsp&nbspend<br/>&nbsp&nbspif callback then<br/>&nbsp&nbsp&nbsp&nbspcallback(unpack(results))<br/>&nbsp&nbspend<br/>&nbsp&nbspif count > 0 then<br/>&nbsp&nbsp&nbsp&nbspprint("there is more to do; " .. tostring(count) .. " items are still in the queue.")<br/>&nbsp&nbspelse<br/>&nbsp&nbsp&nbsp&nbspprint("We're done for now.")<br/>&nbsp&nbspend<br/>end</pre></ul>
+<h3 class="inline-block">Usage:</h3>
+<pre class="example">
+local runcallbacks()<br/>&nbsp;&nbsp;local results = { darksidesync.poll() }<br/>&nbsp;&nbsp;local count = results[1]<br/>&nbsp;&nbsp;table.remove(results, 1)<br/>&nbsp;&nbsp;local callback = results[1]<br/>&nbsp;&nbsp;table.remove(results, 1)<br/>&nbsp;&nbsp;if count == -1 then<br/>&nbsp;&nbsp;&nbsp;&nbsp;return<br/>&nbsp;&nbsp;end<br/>&nbsp;&nbsp;if callback then<br/>&nbsp;&nbsp;&nbsp;&nbsp;callback(unpack(results))<br/>&nbsp;&nbsp;end<br/>&nbsp;&nbsp;if count > 0 then<br/>&nbsp;&nbsp;&nbsp;&nbsp;print("there is more to do; " .. tostring(count) .. " items are still in the queue.")<br/>&nbsp;&nbsp;else<br/>&nbsp;&nbsp;&nbsp;&nbsp;print("We're done for now.")<br/>&nbsp;&nbsp;end<br/>end
+</pre>
 
+</div>
+
+
+
+<div>
 
 
 <h3>Return values:</h3>
@@ -214,6 +178,9 @@ Lua function to get the next item from the queue. If you use the UDP notificatio
 	<li>(by client library) any other parameters as delivered by the async callback.</li>
 	
 </ol>
+
+</div>
+
 
 
 
@@ -240,21 +207,76 @@ Lua function to set the UDP port for notifications. The IP address the notificat
 
 
 
-
-<h3>Return value:</h3>
-<ul>1 if successfull, or <code>nil + error msg</code> if it failed</ul>
+<div>
 
 
+<h3 class="inline-block">Return value:</h3>
+1 if successfull, or <code>nil + error msg</code> if it failed
+
+</div>
+
+
+
+<div>
 
 <h3>See also:</h3>
 <ul>
 	
-	<!-- <li><a href="#../modules/darksidesync.html#getportgetport"> -->
-	<li><a href="#getport">
-		getport</li>
-	</a>
+	<li><a href="../modules/darksidesync.html#getport">
+		getport
+	</a></li>
 	
 </ul>
+
+</div>
+
+
+</dd>
+
+
+
+
+<dt><a name="waitingthread.setresults"></a><strong>waitingthread.setresults</strong>&nbsp;(...)</dt>
+<dd>
+Lua function to set the results of an async callback. The 'waiting-thread' userdata is collected from the <a href="#poll"><code>poll()</code></a> method in case a thread is blocked and waiting for a result. Call this function with the results to return to the async callback.
+
+
+<h3>Parameters:</h3>
+<ul>
+	
+	<li>
+	  <code><em>...</em></code>: parameters to be delivered to the async callback. This depends on what the client library expects
+	</li>
+	
+</ul>
+
+
+
+
+
+<div>
+
+
+<h3 class="inline-block">Return value:</h3>
+depends on client library implementation
+
+</div>
+
+
+
+<div>
+
+<h3>See also:</h3>
+<ul>
+	
+	<li><a href="../modules/darksidesync.html#poll">
+		poll
+	</a></li>
+	
+</ul>
+
+</div>
+
 
 </dd>
 
@@ -262,18 +284,14 @@ Lua function to set the UDP port for notifications. The IP address the notificat
 </dl>
 
 
-
-
-
-
 </div> <!-- id="content" -->
 
 </div> <!-- id="main" -->
 
 <div id="about">
-	<p><a href="http://validator.w3.org/check?uri=referer"><img src="http://www.w3.org/Icons/valid-xhtml10" alt="Valid XHTML 1.0!" height="31" width="88" /></a></p>
+    <p><a href="http://validator.w3.org/check?uri=referer"><img src="http://www.w3.org/Icons/valid-xhtml10" alt="Valid XHTML 1.0!" height="31" width="88" /></a></p>
 </div> <!-- id="about" -->
 
-</div> <!-- id="container" -->	
+</div> <!-- id="container" -->
 </body>
 </html>

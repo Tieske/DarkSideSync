@@ -13,7 +13,7 @@ rem =================================================================
 rem
 
 rem go to source directory and start LuaDoc
-"%LUA_SOURCEPATH%\luadoc_start.lua" -d .\doc dss.lua darksidesync.lua 
+"%LUA_SOURCEPATH%\luadoc_start.lua" --nofiles -d .\doc dss.lua darksidesync.lua 
 start .\doc\index.html
 pause
 

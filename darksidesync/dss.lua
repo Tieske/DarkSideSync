@@ -60,8 +60,8 @@ end
 local rotate = function(drop, ...) return ... end
 
 -- reads incoming data on the socket, dismisses the data and calls poll()
--- any data returned will have a first argument being the number of items 
--- remaining on the queue. And a second being a callback to be called with 
+-- any data returned will have a first argument being the number of items
+-- remaining on the queue. And a second being a callback to be called with
 -- the remaining arguments
 local sockethandler = function(skt)
     -- collect data from socket, can be dismissed, won't be used
@@ -136,6 +136,7 @@ local dss = {
     -- When the sockethandler function executes the callback, the function set though
     -- <code>seterrorhandler()</code> will be used as the error function on the <code>coxpcall</code>.
     -- The default errorhandler will print the error and a stacktrack.
+	-- @param f the error handler function to be set
     seterrorhandler = function(f)
         assert(type(f) == "function", "The errorhandler must be a function.")
         ehandler = f

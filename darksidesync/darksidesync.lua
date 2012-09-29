@@ -17,10 +17,10 @@
 -- you 95% done)
 -- <br/>
 -- <br/>To use the DarkSideSync library from Lua there are 2 options
--- <ul><li>do not use notifications, but regularly call <a href="#poll"><code>poll()</code></a>
+-- </p><ul><li>do not use notifications, but regularly call <a href="#poll"><code>poll()</code></a>
 -- to check for incomming data</li>
 -- <li>use the UDP notification mechanism (a LuaSocket implementation is available
--- in <a href="../files/dss.html"><code>dss.lua</code></a>).</li></ul>
+-- in <a href="../files/dss.html"><code>dss.lua</code></a>).</li></ul><p>
 -- The latter has UDP networking overhead but has some advantages; works with any network library and
 -- allows the application to 'go to sleep' in a network <code>select()</code> call. Additionally a UDP socket
 -- has the advantage (over a filehandle) that it works on most common platforms.
@@ -87,7 +87,7 @@ end,
 -- Lua function to set the results of an async callback. The 'waiting-thread' userdata is collected from
 -- the <a href="#poll"><code>poll()</code></a> method in case a thread is blocked and waiting for a result.
 -- Call this function with the results to return to the async callback.
--- @name [waitingthread].setresults
+-- @name waitingthread.setresults
 -- @param ... parameters to be delivered to the async callback. This depends on what the client library expects
 -- @return depends on client library implementation
 -- @see poll
