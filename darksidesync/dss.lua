@@ -4,7 +4,7 @@
 -- network library, you need to rewrite/reimplement this code. If you do not want
 -- to use the UDP notifications, then this module is not necessary.
 -- <br/>Upon requiring this Lua module, it will load the additional
--- C libraries (<a href="../files/darksidesync.html"><code>darksidesync/core.so</code> or <code>darksidesync/core.dll</code></a>).
+-- C libraries (<a href="../modules/darksidesync.html"><code>darksidesync/core.so</code> or <code>darksidesync/core.dll</code></a>).
 -- @class module
 -- @name dss
 -- @copyright 2012 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license
