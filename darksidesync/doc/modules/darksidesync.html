@@ -56,12 +56,12 @@
 
 <div id="content">
 
-<h1>Module "darksidesync"</h1>
+<h1>Module "<code>darksidesync</code>"</h1>
 
 <p>DarkSideSync is a Lua helper module for asynchroneous callbacks from other libraries. Lua is single-threaded by nature and hence working with multithreaded libraries is a complex matter. DarkSideSync aim is to make using asynchroneous libraries simple. <br/>DarkSideSync takes away the complexity of messages queues, locking, synchronization, etc. because it implements them once and has a thread safe API to perform all those tasks, and notify Lua of incoming threads/data. It is a regular Lua module (C library) that can be loaded from Lua (no C-side dependencies/linking for any libraries using DarkSideSync) and it supports many libraries to consume its services simultaneously. <br/><br/><a href="../dss_overview.htm">Check here for an overview.</a> <br/><br/>It can only work with libraries designed to work with DarkSideSync. Check out the library source, specifically <a href="https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_api.h"><code>darksidesync_api.h</code></a> on how to do that. Additionally use <a href="https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_aux.c"><code>darksidesync_aux.c</code></a> to get up and running with DarkSideSync quickly (just an include of this file will get you 95% done) <br/>&nbsp;<br/>To use the DarkSideSync library from Lua there are 2 options </p><ul><li>do not use notifications, but regularly call <a href="#poll"><code>poll()</code></a> to check for incomming data</li> <li>use the UDP notification mechanism (a LuaSocket implementation is available in <a href="../modules/dss.html"><code>dss.lua</code></a>).</li></ul><p> The latter has UDP networking overhead but has some advantages; works with any network library and allows the application to 'go to sleep' in a network <code>select()</code> call. Additionally a UDP socket has the advantage (over a filehandle) that it works on most common platforms. In cases with a high number of callbacks the polling method is considered the better solution.</p>
 
 
-<p>Copyright&copy; 2012 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license</p>
+<p>Copyright &copy; 2012 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license</p>
 
 
 <p><small><b>Release:</b> Version 0.x, DarkSideSync.</small></p>
@@ -126,6 +126,9 @@ UDP port number
 
 
 
+
+
+
 <div>
 
 <h3>See also:</h3>
@@ -155,9 +158,7 @@ Lua function to get the next item from the queue. If you use the UDP notificatio
 <div>
 
 <h3 class="inline-block">Usage:</h3>
-<pre class="example">
 local runcallbacks()<br/>&nbsp;&nbsp;local results = { darksidesync.poll() }<br/>&nbsp;&nbsp;local count = results[1]<br/>&nbsp;&nbsp;table.remove(results, 1)<br/>&nbsp;&nbsp;local callback = results[1]<br/>&nbsp;&nbsp;table.remove(results, 1)<br/>&nbsp;&nbsp;if count == -1 then<br/>&nbsp;&nbsp;&nbsp;&nbsp;return<br/>&nbsp;&nbsp;end<br/>&nbsp;&nbsp;if callback then<br/>&nbsp;&nbsp;&nbsp;&nbsp;callback(unpack(results))<br/>&nbsp;&nbsp;end<br/>&nbsp;&nbsp;if count > 0 then<br/>&nbsp;&nbsp;&nbsp;&nbsp;print("there is more to do; " .. tostring(count) .. " items are still in the queue.")<br/>&nbsp;&nbsp;else<br/>&nbsp;&nbsp;&nbsp;&nbsp;print("We're done for now.")<br/>&nbsp;&nbsp;end<br/>end
-</pre>
 
 </div>
 
@@ -180,6 +181,9 @@ local runcallbacks()<br/>&nbsp;&nbsp;local results = { darksidesync.poll() }<br/
 </ol>
 
 </div>
+
+
+
 
 
 
@@ -214,6 +218,9 @@ Lua function to set the UDP port for notifications. The IP address the notificat
 1 if successfull, or <code>nil + error msg</code> if it failed
 
 </div>
+
+
+
 
 
 
@@ -261,6 +268,9 @@ Lua function to set the results of an async callback. The 'waiting-thread' userd
 depends on client library implementation
 
 </div>
+
+
+
 
 
 

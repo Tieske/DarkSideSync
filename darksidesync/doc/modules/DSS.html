@@ -56,12 +56,12 @@
 
 <div id="content">
 
-<h1>Module "dss"</h1>
+<h1>Module "<code>dss</code>"</h1>
 
 <p><br/><br/>This module contains the DarkSideSync-Lua side notification implementation based on the LuaSocket network library. If you intend to use another network library, you need to rewrite/reimplement this code. If you do not want to use the UDP notifications, then this module is not necessary. <br/>Upon requiring this Lua module, it will load the additional C libraries (<a href="../modules/darksidesync.html"><code>darksidesync/core.so</code> or <code>darksidesync/core.dll</code></a>).</p>
 
 
-<p>Copyright&copy; 2012 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license</p>
+<p>Copyright &copy; 2012 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license</p>
 
 
 <p><small><b>Release:</b> Version 0.x, DarkSideSync.</small></p>
@@ -81,6 +81,11 @@
     <tr>
     <td class="name" nowrap><a href="#getsocket">getsocket</a>&nbsp;()</td>
     <td class="summary">Returns a socket where the helper module will be listening for incoming UDP signals that data is ready to be collected through <a href="../files/darksidesync.html#poll"><code>poll()</code></a>.</td>
+    </tr>
+
+    <tr>
+    <td class="name" nowrap><a href="#queuesize">queuesize</a>&nbsp;()</td>
+    <td class="summary">Returns the current queue size.</td>
     </tr>
 
     <tr>
@@ -112,9 +117,7 @@ Returns a socket handler function. This socket handler function will do a single
 <div>
 
 <h3 class="inline-block">Usage:</h3>
-<pre class="example">
 copas.addserver(       -- assumes using the Copas scheduler<br/>&nbsp;&nbsp;dss.getsocket(), function(skt)<br/>&nbsp;&nbsp;&nbsp;&nbsp;skt = copas.wrap(skt)<br/>&nbsp;&nbsp;&nbsp;&nbsp;local hdlr = dss.gethandler()<br/>&nbsp;&nbsp;&nbsp;&nbsp;while true do<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hdlr(skt)<br/>&nbsp;&nbsp;&nbsp;&nbsp;end<br/>&nbsp;&nbsp;end)
-</pre>
 
 </div>
 
@@ -127,6 +130,9 @@ copas.addserver(       -- assumes using the Copas scheduler<br/>&nbsp;&nbsp;dss.
 sockethandler function (this function requires a single argument; the socket to read from)
 
 </div>
+
+
+
 
 
 
@@ -161,6 +167,9 @@ Returns a socket where the helper module will be listening for incoming UDP sign
 
 
 
+
+
+
 <div>
 
 <h3>See also:</h3>
@@ -173,6 +182,34 @@ Returns a socket where the helper module will be listening for incoming UDP sign
 </ul>
 
 </div>
+
+
+</dd>
+
+
+
+
+<dt><a name="queuesize"></a><strong>queuesize</strong>&nbsp;()</dt>
+<dd>
+Returns the current queue size.
+
+
+
+
+
+
+<div>
+
+
+<h3 class="inline-block">Return value:</h3>
+number of elements currently waiting in the queue to be handled.
+
+</div>
+
+
+
+
+
 
 
 </dd>
@@ -193,6 +230,9 @@ Sets the error handler when calling the callback function returned from DarkSide
 	</li>
 	
 </ul>
+
+
+
 
 
 

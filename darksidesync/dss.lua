@@ -132,6 +132,13 @@ local dss = {
     end,
 
     -----------------------------------------------------------------------------------------
+    -- Returns the current queue size.
+	-- @return number of elements currently waiting in the queue to be handled.
+    queuesize = function()
+	    return darksidesync.queuesize()
+	end,
+
+    -----------------------------------------------------------------------------------------
     -- Sets the error handler when calling the callback function returned from DarkSideSync.
     -- When the sockethandler function executes the callback, the function set though
     -- <code>seterrorhandler()</code> will be used as the error function on the <code>coxpcall</code>.
