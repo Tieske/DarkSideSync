@@ -699,6 +699,19 @@ static int L_poll(lua_State *L)
 	return result;
 };
 
+// Lua function to get the size of the queue
+// returns: 
+// 1st: queuesize of remaining items
+static int L_queuesize(lua_State *L)
+{
+	pglobalRecord g = DSS_getvalidglobals(L); // won't return on error
+	lua_settop(L, 0);		// clear stack
+	DSS_mutex_lock(&dsslock);
+	lua_pushinteger(L, g->QueueCount);
+	DSS_mutex_unlock(&dsslock);
+	return 1;
+};
+
 // Execute the return callback, either regular or from garbage collector
 static int L_return_internal(lua_State *L, BOOL garbage)
 {
@@ -734,6 +747,7 @@ static const struct luaL_Reg DarkSideSync[] = {
 	{"poll",L_poll},
 	{"getport",L_getport},
 	{"setport",L_setport},
+	{"queuesize",L_queuesize},
 	{NULL,NULL}
 };
 
