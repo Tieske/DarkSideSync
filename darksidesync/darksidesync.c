@@ -13,7 +13,7 @@ static int statecount = 0;							// counter for number of lua states using this 
 static DSS_api_1v0_t DSS_api_1v0;					// API struct for version 1.0
 
 // forward definitions
-void setUDPPort (pglobalRecord g, int newPort);
+static void setUDPPort (pglobalRecord g, int newPort);
 
 #ifdef _DEBUG
 //can be found here  http://www.lua.org/pil/24.2.3.html
