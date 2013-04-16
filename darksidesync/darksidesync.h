@@ -34,6 +34,13 @@
 	#define DSS_API extern
 #endif
 
+// Windows BOOL compatibility for other platforms
+#ifndef BOOL
+    #define BOOL int
+    #define TRUE 1
+    #define FALSE 0
+#endif
+
 //////////////////////////////////////////////////////////////
 // C side structures for registration and globals			//
 //////////////////////////////////////////////////////////////
