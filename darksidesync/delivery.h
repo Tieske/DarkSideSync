@@ -4,6 +4,7 @@
 #include "darksidesync.h"
 #include "darksidesync_api.h"
 #include <lauxlib.h>
+#include <stdlib.h>
 
 // Pointer type to delivery item
 //typedef struct qItem *pQueueItem;
