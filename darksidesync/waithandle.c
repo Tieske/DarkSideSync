@@ -29,7 +29,7 @@ pDSS_waithandle DSS_waithandle_create()
 		return NULL;
 	}
 #else
-	int rt = sem_init(wh->semaphore, 0, 0);
+	int rt = sem_init(&(wh->semaphore), 0, 0);
 	if (rt != 0 ) {
 		// failed initializing
 		free(wh);
@@ -54,7 +54,7 @@ void DSS_waithandle_reset(pDSS_waithandle wh)
 		// now wait 1, effectively reducing to 0 and hence closing
 		WaitForSingleObject(wh->semaphore, INFINITE);
 #else
-		while (sem_trywait(wh->semaphore) == 0);  // wait (and reduce) until error (value = 0 and blocking)
+		while (sem_trywait(&(wh->semaphore)) == 0);  // wait (and reduce) until error (value = 0 and blocking)
 #endif
 	}
 }
@@ -70,7 +70,7 @@ void DSS_waithandle_signal(pDSS_waithandle wh)
 #ifdef WIN32
 		ReleaseSemaphore(wh->semaphore, 1, NULL);
 #else
-		sem_post(wh->semaphore);
+		sem_post(&(wh->semaphore));
 #endif
 	}
 }
@@ -86,7 +86,7 @@ void DSS_waithandle_wait(pDSS_waithandle wh)
 #ifdef WIN32
 		WaitForSingleObject(wh->semaphore, INFINITE);
 #else
-		sem_wait(wh->semaphore);
+		sem_wait(&(wh->semaphore));
 #endif
 	}
 }
@@ -105,8 +105,8 @@ void DSS_waithandle_delete(pDSS_waithandle wh)
 		CloseHandle(wh->semaphore);
 #else
 		// release before destroying
-		sem_post(wh->semaphore);
-		sem_destroy(wh->semaphore);
+		sem_post(&(wh->semaphore));
+		sem_destroy(&(wh->semaphore));
 #endif
 		// release resources
 		free(wh);
