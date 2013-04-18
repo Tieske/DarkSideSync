@@ -1,6 +1,7 @@
 #ifndef dss_waithandle_c
 #define dss_waithandle_c
 
+#include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include "waithandle.h"
