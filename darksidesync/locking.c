@@ -28,7 +28,7 @@ int DSS_mutex_init(DSS_mutex_t* m)
 	pthread_mutexattr_init(&Attr);
 	pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
 	int r = pthread_mutex_init(m, &Attr);	// return 0 upon success
-	return r
+	return r;
 #endif
 }
 
