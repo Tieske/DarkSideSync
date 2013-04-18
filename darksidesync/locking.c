@@ -23,7 +23,11 @@ int DSS_mutex_init(DSS_mutex_t* m)
 	else
 		return 0;
 #else
-	int r = pthread_mutex_init(&m, NULL);	// return 0 upon success
+	// create attribute and set it to RECURSIVE as the mutex type
+	pthread_mutexattr_t Attr;
+	pthread_mutexattr_init(&Attr);
+	pthread_mutexattr_settype(&Attr, PTHREAD_MUTEX_RECURSIVE);
+	int r = pthread_mutex_init(m, &Attr);	// return 0 upon success
 	return r
 #endif
 }
@@ -34,7 +38,7 @@ void DSS_mutex_destroy(DSS_mutex_t* m)
 #ifdef WIN32
 	CloseHandle(*m);
 #else
-	pthread_mutex_destroy(&m);
+	pthread_mutex_destroy(m);
 #endif
 }
 
@@ -44,7 +48,7 @@ void DSS_mutex_lock(DSS_mutex_t* m)
 #ifdef WIN32
 	WaitForSingleObject(*m, INFINITE);
 #else
-	pthread_mutex_lock(&m);
+	pthread_mutex_lock(m);
 #endif
 }
 
@@ -54,7 +58,7 @@ void DSS_mutex_unlock(DSS_mutex_t* m)
 #ifdef WIN32
 	ReleaseMutex(*m);
 #else
-	pthread_mutex_unlock(&m);
+	pthread_mutex_unlock(m);
 #endif
 }
 
