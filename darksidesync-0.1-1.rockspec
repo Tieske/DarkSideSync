@@ -31,6 +31,9 @@ build = {
             "darksidesync/udpsocket.c",
             "darksidesync/waithandle.c",
           },
+          libraries = {
+            "pthread"
+          },
           defines = {
             --"LUASOCKET_DEBUG"
           }
