@@ -126,24 +126,23 @@ local dss = {
     --       hdlr(skt)
     --     end
     --   end)
-
     gethandler = function()
         return sockethandler
     end,
 
     -----------------------------------------------------------------------------------------
     -- Returns the current queue size.
-	-- @return number of elements currently waiting in the queue to be handled.
+    -- @return number of elements currently waiting in the queue to be handled.
     queuesize = function()
-	    return darksidesync.queuesize()
-	end,
+      return darksidesync.queuesize()
+    end,
 
     -----------------------------------------------------------------------------------------
     -- Sets the error handler when calling the callback function returned from DarkSideSync.
     -- When the sockethandler function executes the callback, the function set though
     -- <code>seterrorhandler()</code> will be used as the error function on the <code>coxpcall</code>.
-    -- The default errorhandler will print the error and a stacktrack.
-	-- @param f the error handler function to be set
+    -- The default errorhandler will print the error and a stack traceback.
+    -- @param f the error handler function to be set
     seterrorhandler = function(f)
         assert(type(f) == "function", "The errorhandler must be a function.")
         ehandler = f
