@@ -1,20 +1,20 @@
 ---------------------------------------------------------------------
--- <br/><br/>This module contains the DarkSideSync-Lua side notification implementation based
--- on the LuaSocket network library. If you intend to use another
+-- This module contains the DarkSideSync-Lua side notification implementation based
+-- on the LuaSocket network library (this module is not required, it is just a quick start if 
+-- you will be using LuaSocket with darksidesync). If you intend to use another
 -- network library, you need to rewrite/reimplement this code. If you do not want
 -- to use the UDP notifications, then this module is not necessary.
--- <br/>Upon requiring this Lua module, it will load the additional
--- C libraries (<a href="../modules/darksidesync.html"><code>darksidesync/core.so</code> or <code>darksidesync/core.dll</code></a>).
+-- Upon requiring this Lua module, it will load the additional
+-- C libraries (`darksidesync/core.so` or `darksidesync/core.dll`).
 -- @class module
 -- @name dss
--- @copyright 2012 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license
+-- @copyright 2012-2013 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license
 -- @release Version 0.x, DarkSideSync.
 local socket = require("socket")
 local darksidesync = require("darksidesync")
 require("coxpcall")
 local skt, port
 
---------------------------------------------------------------
 -- creates and initializes the UDP socket to be listened on
 -- @return a luasocket.udp socket and the port number, or nil and an error message
 local createsocket = function()
@@ -47,7 +47,7 @@ local createsocket = function()
 end
 
 -- default error handler, see dss.seterrorhandler() below
-local ehandler = function(msg)
+local _ehandler = function(msg)
     if msg then
         msg = tostring(msg) .. "\n" .. debug.traceback("DSS error: callback function had an error;\n")
     else
@@ -55,6 +55,7 @@ local ehandler = function(msg)
     end
     print (msg)
 end
+local ehandler = _ehandler
 
 -- argument rotate left (remove 1st in list)
 local rotate = function(drop, ...) return ... end
@@ -87,67 +88,69 @@ local sockethandler = function(skt)
 end
 
 -- define module table
-local dss = {
-    ----------------------------------------------------------------------------------------
-    -- Returns a socket where the helper module will be listening for incoming UDP
-    -- signals that data is ready to be collected through <a href="../files/darksidesync.html#poll"><code>poll()</code></a>. When data arrives it
-    -- MUST be read, and next <a href="../files/darksidesync.html#poll"><code>poll()</code></a> should be called (the sockethandler, see <code>gethandler()</code> will do this).
-    -- If no socket was allocated yet, a new socket will be allocated. It will by default
-    -- listen on <code>localhost</code> and try to pick a port number from 50000 and 50200.
-    -- After allocating the socket, the DarkSideSync (C-side) function <a href="../files/darksidesync.html#setport"><code>setport()</code></a>
-    -- will be called to instruct the synchronization mechanism to send notifications on this port.
-    -- @return Socket: Existing or newly created UDP socket
-    -- @return Port: port number the socket is listening on
-    -- @see gethandler
-    getsocket = function()
-        if not skt then
-            skt, port = createsocket()
-            if skt then
-                -- socket was created succesfully, now must tell my C side helper lib on what port
-                -- I'm listening for incoming data
-                darksidesync.setport(port)
-            end
+local dss = {}
+
+----------------------------------------------------------------------------------------
+-- Returns a socket where the helper module will be listening for incoming UDP
+-- signals that data is ready to be collected through `darksidesync.poll`. When data arrives it
+-- MUST be read, and next `darksidesync.poll` should be called (the sockethandler, see `gethandler`, will do this).
+-- If no socket was allocated yet, a new socket will be allocated. It will by default
+-- listen on `localhost` and try to pick a port number from 50000 and 50200.
+-- After allocating the socket, the DarkSideSync (C-side) function `darksidesync.setport`
+-- will be called to instruct the synchronization mechanism to send notifications on this port.
+-- @return Socket: Existing or newly created UDP socket
+-- @return Port: port number the socket is listening on
+-- @see gethandler
+-- @see darksidesync.poll
+-- @see darksidesync.setport
+dss.getsocket = function()
+    if not skt then
+        skt, port = createsocket()
+        if skt then
+            -- socket was created succesfully, now must tell my C side helper lib on what port
+            -- I'm listening for incoming data
+            darksidesync.setport(port)
         end
-        return skt, port
-    end,
+    end
+    return skt, port
+end,
 
-    -----------------------------------------------------------------------------------------
-    -- Returns a socket handler function. This socket handler function will do a single
-    -- read on the socket to empty the buffer, call <a href="../files/darksidesync.html#poll"><code>poll()</code></a> on DarkSideSync for the asynchroneous
-    -- data received, and call the appropriate callback with the arguments. So whenever
-    -- a UDP notification packet is received, the socket handler function should be called
-    -- to initiate the execution of the async callback.
-    -- @return sockethandler function (this function requires a single argument; the socket to read from)
-    -- @usage# copas.addserver(       -- assumes using the Copas scheduler
-    --   dss.getsocket(), function(skt)
-    --     skt = copas.wrap(skt)
-    --     local hdlr = dss.gethandler()
-    --     while true do
-    --       hdlr(skt)
-    --     end
-    --   end)
-    gethandler = function()
-        return sockethandler
-    end,
+-----------------------------------------------------------------------------------------
+-- Returns a socket handler function. This socket handler function will do a single
+-- read on the socket to empty the buffer, call `darksidesync.poll` for the asynchroneous
+-- data received, and call the appropriate callback with the arguments. So whenever
+-- a UDP notification packet is received, the socket handler function should be called
+-- to initiate the execution of the async callback.
+-- @return sockethandler function (this function requires a single argument; the socket to read from)
+-- @see darksidesync.poll
+-- @usage copas.addserver(       -- assumes using the Copas scheduler
+--   dss.getsocket(), function(skt)
+--     skt = copas.wrap(skt)
+--     local hdlr = dss.gethandler()
+--     while true do
+--       hdlr(skt)
+--     end
+--   end)
+dss.gethandler = function()
+    return sockethandler
+end,
 
-    -----------------------------------------------------------------------------------------
-    -- Returns the current queue size.
-    -- @return number of elements currently waiting in the queue to be handled.
-    queuesize = function()
-      return darksidesync.queuesize()
-    end,
+-----------------------------------------------------------------------------------------
+-- Returns the current queue size.
+-- @return number of elements currently waiting in the queue to be handled.
+dss.queuesize = function()
+  return darksidesync.queuesize()
+end,
 
-    -----------------------------------------------------------------------------------------
-    -- Sets the error handler when calling the callback function returned from DarkSideSync.
-    -- When the sockethandler function executes the callback, the function set though
-    -- <code>seterrorhandler()</code> will be used as the error function on the <code>coxpcall</code>.
-    -- The default errorhandler will print the error and a stack traceback.
-    -- @param f the error handler function to be set
-    seterrorhandler = function(f)
-        assert(type(f) == "function", "The errorhandler must be a function.")
-        ehandler = f
-    end,
-
-}
+-----------------------------------------------------------------------------------------
+-- Sets the error handler when calling the callback function returned from DarkSideSync.
+-- When the sockethandler function executes the callback, the function set though
+-- `seterrorhandler()` will be used as the error function on the `coxpcall`.
+-- The default errorhandler will print the error and a stack traceback.
+-- @param f the error handler function to be set (or `nil` to restore the default error handler)
+dss.seterrorhandler = function(f)
+    assert(type(f) == "function", "The errorhandler must be a function.")
+    ehandler = f or _ehandler
+end,
 
 return dss

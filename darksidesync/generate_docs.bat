@@ -1,0 +1,6 @@
+@echo off
+ldoc .
+pause
+
+
+
