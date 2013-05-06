@@ -104,8 +104,9 @@ pQueueItem delivery_new(putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_retur
 // 1st: queuesize of remaining items or;
 //      -1 to indicate there was nothing in the queue to begin with
 // 2nd: lua callback function to handle the data
-// 3rd: userdata waiting for the response (only of a 'return' call is still valid)
-// 4th+: any stuff left by decoder after the callback function (2nd above)
+// 3rd: table containing all callback arguments with;
+//    pos 1 : userdata waiting for the response (only if a 'return' call is still valid)
+//    pos 2+: any stuff left by decoder after the callback function (2nd above)
 //
 // Note: if lua_state == NULL then the item will be cancelled
 int delivery_decode(pQueueItem pqi, lua_State *L)
@@ -142,7 +143,7 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 		return 1;					// Only count is returned
 	}
 
-	lua_checkstack(L, 2);
+	lua_checkstack(L, 3);
 	if (pqi->pReturn != NULL)
 	{
 		// Create userdata to reference the queueitem, because we have a return callback
@@ -175,10 +176,16 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 		if (lua_gettop(L) > 2 ) lua_insert(L, 2);
 		result = result + 1;		// 1 more result because we added the userdata
 	}
-	lua_pushinteger(L, g->QueueCount);	// add count to results
-	lua_insert(L,1);					// move count to 1st position
+	lua_createtable(L, result - 1, 0);			// add a table
+	if (lua_gettop(L) > 2 ) lua_insert(L, 2);	// move it into 2nd pos
+	while (lua_gettop(L) > 2)					// migrate all callback arguments into the table
+	{
+			lua_rawseti(L, 2, lua_gettop(L)-2);
+	}
+	lua_pushinteger(L, g->QueueCount);			// add count to results
+	lua_insert(L,1);							// move count to 1st position
 
-	return (result + 1);			// 1 more result because of the count that was added
+	return 3;									// count, callback, table cb arguments
 }
 
 // Return destructor

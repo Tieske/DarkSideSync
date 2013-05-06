@@ -760,23 +760,12 @@ return values will be inserted by darksidesync.
 @function poll
 @return (by DSS) queuesize of remaining items (or -1 if there was nothing on the queue to begin with)
 @return (by client) Lua callback function to handle the data
-@return (by DSS) a 'waiting-thread' userdata waiting for the response (only if the async callback expects 
-Lua to deliver a result, in this case the async callback thread will be blocked until 
-`waitingthread.setresults` is called)
-@return (by client library) any other parameters as delivered by the async callback
+@return Table with arguments for the Lua callback, this contains (by client library) any other parameters as delivered by the async callback. Optionally, if the async thread requires a result to be returned, a 'waiting-thread' userdata (by DSS) is inserted at position 1 (but only if the async callback expects Lua to deliver a result, in this case the async callback thread will be blocked until `waitingthread.setresults` is called)
 @usage
 local runcallbacks()
-  local results = { darksidesync.poll() }
-  local count = results[1]
-  table.remove(results, 1)
-  local callback = results[1]
-  table.remove(results, 1)
-  if count == -1 then
-    return
-  end
-  if callback then
-    callback(unpack(results))
-  end
+  local count, callback, args = darksidesync.poll()
+  if count == -1 then return end	-- queue was empty, nothing to do
+  callback(unpack(args))            -- execute callback
   if count > 0 then
     print("there is more to do; " .. tostring(count) .. " items are still in the queue.")
   else

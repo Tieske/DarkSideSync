@@ -76,7 +76,7 @@
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#gethandler">gethandler&nbsp;()</a></td>
-	<td class="summary">Returns a socket handler function.</td>
+	<td class="summary">Returns the socket handler function.</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#queuesize">queuesize&nbsp;()</a></td>
@@ -131,7 +131,7 @@
     <strong>gethandler&nbsp;()</strong>
     </dt>
     <dd>
-    Returns a socket handler function.  This socket handler function will do a single
+    Returns the socket handler function.  This socket handler function will do a single
  read on the socket to empty the buffer, call <a href="../modules/darksidesync.html#poll">darksidesync.poll</a>  for the asynchroneous
  data received, and call the appropriate callback with the arguments. So whenever
  a UDP notification packet is received, the socket handler function should be called
@@ -141,7 +141,7 @@
     <h3>Returns:</h3>
     <ol>
 
-        sockethandler function (this function requires a single argument; the socket to read from)
+        sockethandler function (the function returned requires a single argument; the socket to read from)
     </ol>
 
 
@@ -152,7 +152,8 @@
 
     <h3>Usage:</h3>
     <ul>
-        <pre class="example"> copas.addserver(       <span class="comment">-- assumes using the Copas scheduler
+        <pre class="example">
+ copas.addserver(       <span class="comment">-- assumes using the Copas scheduler
 </span>   dss.getsocket(), <span class="keyword">function</span>(skt)
      skt = copas.wrap(skt)
      <span class="keyword">local</span> hdlr = dss.gethandler()

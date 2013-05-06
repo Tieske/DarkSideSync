@@ -15,6 +15,8 @@ local darksidesync = require("darksidesync")
 require("coxpcall")
 local skt, port
 
+local unpack = unpack or table.unpack  -- 5.1/5.2 compatibility
+
 -- creates and initializes the UDP socket to be listened on
 -- @return a luasocket.udp socket and the port number, or nil and an error message
 local createsocket = function()
@@ -57,9 +59,6 @@ local _ehandler = function(msg)
 end
 local ehandler = _ehandler
 
--- argument rotate left (remove 1st in list)
-local rotate = function(drop, ...) return ... end
-
 -- reads incoming data on the socket, dismisses the data and calls poll()
 -- any data returned will have a first argument being the number of items
 -- remaining on the queue. And a second being a callback to be called with
@@ -68,21 +67,13 @@ local sockethandler = function(skt)
     -- collect data from socket, can be dismissed, won't be used
     skt:receive(8192)   -- size not optional if using copas, add it to be sure
     -- now call poll() to collect the actual data in a new table with values
-    local values = { darksidesync.poll() }  -- catch return values in a table
-    if values[1] == -1 then
-        -- there was nothing in the queue, nothing was executed
-    else
-        values = { rotate(unpack(values)) }
-        local cb = values[1] -- get the callback, always the first argument
-        if cb then
-            if type(cb) ~= "function" then
-                print ("error: the first argument returned should have been a lua function!")
-            else
-                -- now call the callback with the other arguments as parameters, in a protected (coxpcall) mode
-                local f = values[1]
-                values = { rotate(unpack(values)) }
-                xpcall(function() f(unpack(values)) end, ehandler)
-            end
+    local count, callback, args = darksidesync.poll() 
+    if count ~= -1 then
+        if type(callback) ~= "function" then
+            print (debug.traceback("error: the first argument returned should have been a Lua function!"))
+        else
+            -- now call the callback with the other arguments as parameters, in a protected (coxpcall) mode
+            xpcall(function() callback(unpack(args)) end, ehandler)
         end
     end
 end
@@ -113,17 +104,18 @@ dss.getsocket = function()
         end
     end
     return skt, port
-end,
+end
 
 -----------------------------------------------------------------------------------------
--- Returns a socket handler function. This socket handler function will do a single
+-- Returns the socket handler function. This socket handler function will do a single
 -- read on the socket to empty the buffer, call `darksidesync.poll` for the asynchroneous
 -- data received, and call the appropriate callback with the arguments. So whenever
 -- a UDP notification packet is received, the socket handler function should be called
 -- to initiate the execution of the async callback.
--- @return sockethandler function (this function requires a single argument; the socket to read from)
+-- @return sockethandler function (the function returned requires a single argument; the socket to read from)
 -- @see darksidesync.poll
--- @usage copas.addserver(       -- assumes using the Copas scheduler
+-- @usage
+-- copas.addserver(       -- assumes using the Copas scheduler
 --   dss.getsocket(), function(skt)
 --     skt = copas.wrap(skt)
 --     local hdlr = dss.gethandler()
@@ -133,14 +125,14 @@ end,
 --   end)
 dss.gethandler = function()
     return sockethandler
-end,
+end
 
 -----------------------------------------------------------------------------------------
 -- Returns the current queue size.
 -- @return number of elements currently waiting in the queue to be handled.
 dss.queuesize = function()
   return darksidesync.queuesize()
-end,
+end
 
 -----------------------------------------------------------------------------------------
 -- Sets the error handler when calling the callback function returned from DarkSideSync.
@@ -151,6 +143,6 @@ end,
 dss.seterrorhandler = function(f)
     assert(type(f) == "function", "The errorhandler must be a function.")
     ehandler = f or _ehandler
-end,
+end
 
 return dss

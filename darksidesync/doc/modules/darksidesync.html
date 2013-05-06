@@ -245,11 +245,7 @@ return values will be inserted by darksidesync.
         <li>
         (by client) Lua callback function to handle the data</li>
         <li>
-         (by DSS) a 'waiting-thread' userdata waiting for the response (only if the async callback expects
-Lua to deliver a result, in this case the async callback thread will be blocked until
-<a href="../modules/darksidesync.html#waitingthread.setresults">waitingthread.setresults</a>  is called)</li>
-        <li>
-        (by client library) any other parameters as delivered by the async callback</li>
+        Table with arguments for the Lua callback, this contains (by client library) any other parameters as delivered by the async callback. Optionally, if the async thread requires a result to be returned, a 'waiting-thread' userdata (by DSS) is inserted at position 1 (but only if the async callback expects Lua to deliver a result, in this case the async callback thread will be blocked until <a href="../modules/darksidesync.html#waitingthread.setresults">waitingthread.setresults</a>  is called)</li>
     </ol>
 
 
@@ -258,18 +254,10 @@ Lua to deliver a result, in this case the async callback thread will be blocked 
     <ul>
         <pre class="example">
 <span class="keyword">local</span> runcallbacks()
-  <span class="keyword">local</span> results = { darksidesync.poll() }
-  <span class="keyword">local</span> count = results[<span class="number">1</span>]
-  <span class="global">table</span>.remove(results, <span class="number">1</span>)
-  <span class="keyword">local</span> callback = results[<span class="number">1</span>]
-  <span class="global">table</span>.remove(results, <span class="number">1</span>)
-  <span class="keyword">if</span> count == -<span class="number">1</span> <span class="keyword">then</span>
-    <span class="keyword">return</span>
-  <span class="keyword">end</span>
-  <span class="keyword">if</span> callback <span class="keyword">then</span>
-    callback(<span class="global">unpack</span>(results))
-  <span class="keyword">end</span>
-  <span class="keyword">if</span> count &gt; <span class="number">0</span> <span class="keyword">then</span>
+  <span class="keyword">local</span> count, callback, args = darksidesync.poll()
+  <span class="keyword">if</span> count == -<span class="number">1</span> <span class="keyword">then</span> <span class="keyword">return</span> <span class="keyword">end</span>	<span class="comment">-- queue was empty, nothing to do
+</span>  callback(<span class="global">unpack</span>(args))            <span class="comment">-- execute callback
+</span>  <span class="keyword">if</span> count &gt; <span class="number">0</span> <span class="keyword">then</span>
     <span class="global">print</span>(<span class="string">"there is more to do; "</span> .. <span class="global">tostring</span>(count) .. <span class="string">" items are still in the queue."</span>)
   <span class="keyword">else</span>
     <span class="global">print</span>(<span class="string">"We're done for now."</span>)
