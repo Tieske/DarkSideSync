@@ -17,6 +17,7 @@ local skt, port
 
 local unpack = unpack or table.unpack  -- 5.1/5.2 compatibility
 
+----------------------------------------------------------------------------------------
 -- creates and initializes the UDP socket to be listened on
 -- @return a luasocket.udp socket and the port number, or nil and an error message
 local createsocket = function()
@@ -59,6 +60,7 @@ local _ehandler = function(msg)
 end
 local ehandler = _ehandler
 
+----------------------------------------------------------------------------------------
 -- reads incoming data on the socket, dismisses the data and calls poll()
 -- any data returned will have a first argument being the number of items
 -- remaining on the queue. And a second being a callback to be called with
