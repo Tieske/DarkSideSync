@@ -52,14 +52,16 @@ the code files.
 
 /***
 Contains the complete C-side API.
-See [API header file](https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_api.h)
+See API header file [darksidesync\_api.h](https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_api.h).
 @function darksidesync_api.h 
 */
 
 /***
 Contains the core client implementation code.
-An [implementation of the C-side API](https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_aux.c) has been created in `darksidesync_aux.c`.
-This implementation should suffice for most usecases. Just copy the file into your project and include it.
+An implementation of the C-side API ([darksidesync\_aux.c](https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_aux.c) 
+and [darksidesync\_aux.h](https://github.com/Tieske/DarkSideSync/blob/master/darksidesync/darksidesync_aux.h)) is available.
+This implementation should suffice for most usecases. Just copy the file into your project and include it (make sure to read the notes on linking
+in `darksidesync_api.h`).
 @function darksidesync_aux.c 
 */
 
@@ -270,7 +272,7 @@ static int DSS_clearstateglobals(lua_State *L)
 		while (listend->pNext != NULL) listend = listend->pNext;
 
 		DSS_mutex_unlock(&dsslock);		// must unlock to let the cancel function succeed
-		listend->pCancel(listend, listend->pUtilData);	// call this utility's cancel method
+		listend->pCancel(listend);		// call this utility's cancel method
 		DSS_mutex_lock(&dsslock);		// lock again to get the next one
 	}
 	
@@ -442,48 +444,6 @@ static int DSS_deliver_1v0 (putilRecord utilid, DSS_decoder_1v0_t pDecode, DSS_r
 	return result;	
 };
 
-// Returns the data associated with the Utility, or
-// NULL upon an invalid utilid
-static void* DSS_getdata_1v0(putilRecord utilid, int* errcode)
-{
-	void* result;
-	
-	int le;	// local errorcode
-	if (errcode == NULL) errcode = &le;
-	*errcode = DSS_SUCCESS;
-
-	DSS_mutex_lock(&dsslock);	
-	if (DSS_validutil(utilid))
-	{
-		result = utilid->pUtilData;
-	}
-	else
-	{
-		*errcode = DSS_ERR_INVALID_UTILID;
-		result = NULL;
-	}
-	DSS_mutex_unlock(&dsslock);
-	return result;
-}
-
-// Sets the data associated with the Utility
-// Return DSS_SUCCESS or DSS_ERR_INVALID_UTILID
-static int DSS_setdata_1v0(putilRecord utilid, void* pData)
-{
-	int result = DSS_SUCCESS;
-	DSS_mutex_lock(&dsslock);	
-	if (DSS_validutil(utilid))
-	{
-		utilid->pUtilData = pData;
-	}
-	else
-	{
-		result = DSS_ERR_INVALID_UTILID;
-	}
-	DSS_mutex_unlock(&dsslock);
-	return result;
-}
-
 // Gets the utilid based on a LuaState and libid
 // return NULL upon failure, see Errcode for details; DSS_SUCCESS,
 // DSS_ERR_NOT_STARTED or DSS_ERR_UNKNOWN_LIB
@@ -536,6 +496,7 @@ static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 // register a library to use DSS 
 // @arg1; the globals record the utility is added to
 // @arg2; pointer to the cancel method of the utility, will be called
+// @arg3; integer to take the errorcode to return
 // when DSS decides to terminate the collaboration with the utility
 // Returns: unique ID for the utility that must be used for all subsequent
 // calls to DSS, or NULL if it failed.
@@ -543,7 +504,7 @@ static void* DSS_getutilid_1v0(lua_State *L, void* libid, int* errcode)
 //                  DSS_ERR_ALREADY_REGISTERED, DSS_ERR_OUT_OF_MEMORY
 // NOTE: if the lib was already registered, it will return the existing ID, 
 //       but it will ignore all provided parameters (nothing will be changed)
-static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, void* pData, int* errcode)
+static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t pCancel, int* errcode)
 {
 	putilRecord util;
 	putilRecord last;
@@ -597,7 +558,6 @@ static putilRecord DSS_register_1v0(lua_State *L, void* libid, DSS_cancel_1v0_t 
 	}
 	util->pCancel = pCancel;
 	util->pGlobals = g;
-	util->pUtilData = pData;
 	util->libid = libid;
 	util->pNext = NULL;
 	util->pPrevious = NULL;
@@ -888,8 +848,6 @@ OutputDebugStringA("DSS: LuaOpen started...\n");
 		DSS_api_1v0.reg = (DSS_register_1v0_t)&DSS_register_1v0;
 		DSS_api_1v0.getutilid = (DSS_getutilid_1v0_t)&DSS_getutilid_1v0;
 		DSS_api_1v0.deliver = (DSS_deliver_1v0_t)&DSS_deliver_1v0;
-		DSS_api_1v0.getdata = (DSS_getdata_1v0_t)&DSS_getdata_1v0;
-		DSS_api_1v0.setdata = (DSS_setdata_1v0_t)&DSS_setdata_1v0;
 		DSS_api_1v0.unreg = (DSS_unregister_1v0_t)&DSS_unregister_1v0;
 	}
 

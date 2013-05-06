@@ -3,8 +3,7 @@
 #include <signal.h>
 #include "luaexit.h"
 #include "darksidesync.h"
-
-#include "darksidesync_aux.c"
+#include "darksidesync_aux.h"
 
 static volatile int CallbackReference = LUA_NOREF;
 static void* DSSutilid;
@@ -39,7 +38,7 @@ OutputDebugStringA("LuaExit: unloading completed\n");
 #endif
 	}
 
-	void DSScancel(void* utilid, void* pData)
+	void DSScancel(void* utilid)
 	{
 		DSS_shutdown(NULL, utilid);
 	}
@@ -48,7 +47,7 @@ OutputDebugStringA("LuaExit: unloading completed\n");
 	// pData is always NULL in this case, because we only handle
 	// SIGTERM & SIGINT signal, so push constant string
 	// @returns; as with Lua function, return number of args on the stack to return
-	int signalDecoder (lua_State *L, void *pData, void *pUtilData, void *utilid)
+	int signalDecoder (lua_State *L, void *pData, void *utilid)
 	{
 		if (L == NULL)
 		{

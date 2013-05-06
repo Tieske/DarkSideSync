@@ -126,7 +126,7 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 	g->QueueCount -= 1;
 
 	// execute callback, set to NULL to indicate call is done
-	result = pqi->pDecode(L, pqi->pData, pqi->utilid->pUtilData, pqi->utilid);	
+	result = pqi->pDecode(L, pqi->pData, pqi->utilid);	
 	pqi->pDecode = NULL;				
 
 	if (result < 1 || L == NULL)	// if lua_state == NULL then we're cancelling
@@ -151,7 +151,7 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 		if (udata == NULL)
 		{
 			// memory allocation error, exit process here
-			pqi->pReturn(NULL, pqi->pData, pqi->utilid->pUtilData, pqi->utilid, FALSE); // call with lua_State == NULL to have it cancelled
+			pqi->pReturn(NULL, pqi->pData, pqi->utilid, FALSE); // call with lua_State == NULL to have it cancelled
 			DSS_waithandle_signal(pqi->pWaitHandle);
 			free(pqi);
 			lua_pushinteger(L, pqi->utilid->pGlobals->QueueCount);	// add count to results
@@ -218,7 +218,7 @@ int delivery_return(pQueueItem pqi, lua_State *L, BOOL garbage)
 	if (L != NULL) lua_remove(L, 1);	// remove the userdata from the stack
 
 	// now execute callback, here the utility should release all resources
-	result = pqi->pReturn(L, pqi->pData, pqi->utilid->pUtilData, pqi->utilid, garbage);	
+	result = pqi->pReturn(L, pqi->pData, pqi->utilid, garbage);	
 
 	// Cleanup queueitem
 	pqi->pReturn = NULL;

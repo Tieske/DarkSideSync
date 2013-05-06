@@ -2,16 +2,12 @@
 #include <lauxlib.h>
 #include <string.h>
 #include "darksidesync_api.h"
-
-// static pointer to itself, uniquely identifies this library
-static void* DSS_LibID = &DSS_LibID;
-// Static pointer to the DSS api, will be set by the initialize function below
-static pDSS_api_1v0_t DSSapi = NULL;	// Static no issue, because version 1v0 is same in all libraries
+#include "darksidesync_aux.h"
 
 // will get the api struct (pointer) for the api version 1v0
 // in case of errors it will provide a proper error message and call 
 // luaL_error. In case of an error the call will not return.
-static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
+void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 {
 	int errcode;
 
@@ -44,9 +40,7 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 	lua_pop(L,2); // pop apistruct and DSS global table
 
 	// Now register ourselves
-	// pData = NULL, because on errors the initialize function will not return
-	// and pData may leak resources, so set the pData after initializing.
-	DSSapi->reg(L, DSS_LibID, pCancel, NULL, &errcode);
+	DSSapi->reg(L, DSS_LibID, pCancel, &errcode);
 	if (errcode != DSS_SUCCESS)
 	{
 		DSSapi = NULL;
@@ -64,7 +58,7 @@ static void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 }
 
 // Collect the utilid, or throw Lua error if none
-static void* DSS_getutilid(lua_State *L)
+void* DSS_getutilid(lua_State *L)
 {
 	int err = DSS_SUCCESS;
 	void* result = NULL;
@@ -85,7 +79,7 @@ static void* DSS_getutilid(lua_State *L)
 
 // Deliver data to the Lua state asynchroneously
 // checks existence of the API
-static int DSS_deliver(void* utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData)
+int DSS_deliver(void* utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pReturn, void* pData)
 {
 	if (DSSapi != NULL)
 	{
@@ -101,21 +95,18 @@ static int DSS_deliver(void* utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t
 // use lua_State param if called from userdata __gc method
 // use utilid param if called from the DSS cancel() method
 // one param must be provided, lua_State has highest precedence
-static void DSS_shutdown(lua_State *L, void* utilid)
+void DSS_shutdown(lua_State *L, void* utilid)
 {
 	if (DSSapi != NULL) 
 	{
 		if ((L == NULL) && ( utilid == NULL))
 		{
-			// must fail hard here???
+			// TODO: must fail hard here
 		}
-		else
-		{
-			// If we got a Lua state, go lookup our utilid
-			if (L != NULL) utilid = DSSapi->getutilid(L, DSS_LibID, NULL);
-			// Unregister
-			if (utilid != NULL) DSSapi->unreg(utilid);
-			DSSapi = NULL;
-		}
+		// If we got a Lua state, go lookup our utilid
+		if (L != NULL) utilid = DSSapi->getutilid(L, DSS_LibID, NULL);
+		// Unregister
+		if (utilid != NULL) DSSapi->unreg(utilid);
+		DSSapi = NULL;
 	}
 }

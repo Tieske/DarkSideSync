@@ -57,7 +57,6 @@ typedef struct utilReg {
 		putilRecord pPrevious;		// Previous item in list
 		pglobalRecord pGlobals;		// pointer to the global data for this utility
 		void* libid;				// unique library specific ID
-		void* pUtilData;			// pointer to backgroundworker data
 	} utilRecord;
 
 // Structure for storing data from an async callback in the queue
