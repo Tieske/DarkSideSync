@@ -125,7 +125,7 @@ abstraction on top of this darksidesync core module.</p>
 	<td class="summary">Returns the current size of the darksidesync queue.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#waitingthread.setresults">waitingthread.setresults&nbsp;(...)</a></td>
+	<td class="name" nowrap><a href="#waitingthread_callback">waitingthread_callback&nbsp;(...)</a></td>
 	<td class="summary">Callback function to set the results of an async callback.</td>
 	</tr>
 </table>
@@ -245,7 +245,7 @@ return values will be inserted by darksidesync.
         <li>
         (by client) Lua callback function to handle the data</li>
         <li>
-        Table with arguments for the Lua callback, this contains (by client library) any other parameters as delivered by the async callback. Optionally, if the async thread requires a result to be returned, a 'waiting-thread' userdata (by DSS) is inserted at position 1 (but only if the async callback expects Lua to deliver a result, in this case the async callback thread will be blocked until <a href="../modules/darksidesync.html#waitingthread.setresults">waitingthread.setresults</a>  is called)</li>
+        Table with arguments for the Lua callback, this contains (by client library) any other parameters as delivered by the async callback. Optionally, if the async thread requires a result to be returned, a <a href="../modules/darksidesync.html#waitingthread_callback">waitingthread_callback</a>  function (by DSS) is inserted at position 1 (but only if the async callback expects Lua to deliver a result, in this case the async callback thread will be blocked until the <a href="../modules/darksidesync.html#waitingthread_callback">waitingthread_callback</a>  is called)</li>
     </ol>
 
 
@@ -285,11 +285,11 @@ return values will be inserted by darksidesync.
 
 </dd>
     <dt>
-    <a name = "waitingthread.setresults"></a>
-    <strong>waitingthread.setresults&nbsp;(...)</strong>
+    <a name = "waitingthread_callback"></a>
+    <strong>waitingthread_callback&nbsp;(...)</strong>
     </dt>
     <dd>
-    Callback function to set the results of an async callback.  The 'waiting-thread' userdata is collected from
+    Callback function to set the results of an async callback.  The 'waiting-thread' callback is collected from
 the <a href="../modules/darksidesync.html#poll">poll</a>  method in case a background thread is blocked and waiting for a result.
 Call this function with the results to return to the async callback.
 

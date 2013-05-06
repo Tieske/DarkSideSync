@@ -29,12 +29,12 @@
 //       like luaL_error etc. 
 // Should return; 
 //   >0 ;nr of items on stack, 1st item must be lua function, to be called with remaining items as args
-//       upon returning a new 1st argument will be inserted; a userdata as reference to the waiting thread
-//       (only if a 'return' callback was specified on calling 'deliver' obviously)
+//       upon returning a new 1st argument will be inserted; a callback as reference to the waiting thread
+//       (`waitingthread_callback`; only if a 'return' callback was specified on calling 'deliver' obviously)
 //    0 ;cycle complete, do not create userdata and release the waiting thread (if set to wait)
 // if 0 the DSS process for this callback stops here, so any resources should be released here
 // before returning, or by the blocked thread after it is released.
-// NOTE: the Lua code should at some point call 'setresult' on the userdata. This will
+// NOTE: the Lua code should at some point call `waitingthread_callback` on the userdata. This will
 //       trigger the 'return' function below.
 typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, void* utilid);
 
@@ -42,7 +42,7 @@ typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, vo
 // will get a pointer to previously delivered pData and is responsible
 // for retrieving Lua results and store them in pData, so the initial calling
 // (and currently blocked) thread can handle the results when released.
-// This function is called when 'setresult' is called on the userdata returned
+// This function is called when 'waitingthread_callback' is called on the userdata returned
 // from the 'deliver' function.
 // When this function returns the blocked thread will be released.
 // @arg1; the Lua state (or NULL if items are being cancelled)
@@ -53,8 +53,8 @@ typedef int (*DSS_decoder_1v0_t) (lua_State *L, void* pData, void* pUtilData, vo
 // @arg5; BOOL indicating (TRUE) whether the function was called from the
 //        __GC method of the userdata.
 // @arg-Lua; on the Lua stack will be the parameters provided when calling the
-//           'setresult' function, the userdata (1st arg) will have been removed 
-//           from the stack. 
+//           `waitingthread_callback` function, the callback/userdata itself (1st arg) 
+//           will have been removed from the stack. 
 // returns: number of lua args on stack
 // NOTE: 1) This is the final call, so any resources must be released here, or 
 //          by the unblocked thread

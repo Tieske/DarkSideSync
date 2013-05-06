@@ -760,7 +760,7 @@ return values will be inserted by darksidesync.
 @function poll
 @return (by DSS) queuesize of remaining items (or -1 if there was nothing on the queue to begin with)
 @return (by client) Lua callback function to handle the data
-@return Table with arguments for the Lua callback, this contains (by client library) any other parameters as delivered by the async callback. Optionally, if the async thread requires a result to be returned, a 'waiting-thread' userdata (by DSS) is inserted at position 1 (but only if the async callback expects Lua to deliver a result, in this case the async callback thread will be blocked until `waitingthread.setresults` is called)
+@return Table with arguments for the Lua callback, this contains (by client library) any other parameters as delivered by the async callback. Optionally, if the async thread requires a result to be returned, a `waitingthread_callback` function (by DSS) is inserted at position 1 (but only if the async callback expects Lua to deliver a result, in this case the async callback thread will be blocked until the `waitingthread_callback` is called)
 @usage
 local runcallbacks()
   local count, callback, args = darksidesync.poll()
@@ -837,10 +837,10 @@ static int L_queueItemGC(lua_State *L)
 }
 
 /***
-Callback function to set the results of an async callback. The 'waiting-thread' userdata is collected from
+Callback function to set the results of an async callback. The 'waiting-thread' callback is collected from
 the `poll` method in case a background thread is blocked and waiting for a result.
 Call this function with the results to return to the async callback.
-@function waitingthread.setresults
+@function waitingthread_callback
 @param ... parameters to be delivered to the async callback. This depends on what the client library expects
 @return depends on client library implementation
 @see poll
@@ -901,7 +901,7 @@ OutputDebugStringA("DSS: LuaOpen started...\n");
 	lua_pushstring(L, "__gc");
 	lua_pushcfunction(L, &L_queueItemGC);
 	lua_settable(L, -3);
-	lua_pushstring(L, "setresult");		// used to be called 'return' but thats a reserved word in Lua
+	lua_pushstring(L, "__call");
 	lua_pushcfunction(L, &L_return);
 	lua_settable(L, -3);
 
