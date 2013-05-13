@@ -9,7 +9,7 @@
 -- @class module
 -- @name dss
 -- @copyright 2012-2013 Thijs Schreijer, DarkSideSync is free software under the MIT/X11 license
--- @release Version 0.x, DarkSideSync.
+-- @release Version 1.0, DarkSideSync.
 local socket = require("socket")
 local darksidesync = require("darksidesync")
 require("coxpcall")
