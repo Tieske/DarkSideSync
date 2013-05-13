@@ -19,7 +19,7 @@ There is an optional notification using a UDP packet, which is an easy way to wa
 
 Reference
 ---------
-Documentation can be found in the [repository and on the GitHub page](http://tieske.github.com/DarkSideSync), a [general description and some diagrams](http://tieske.github.com/DarkSideSync/dss_overview.htm) are also available.
+Documentation can be found in the [repository and on the GitHub page](http://tieske.github.com/DarkSideSync), a [general description and some diagrams](http://tieske.github.com/DarkSideSync/background_worker_lib_spec_0v4.pdf) are also available.
 
 Positive
 --------

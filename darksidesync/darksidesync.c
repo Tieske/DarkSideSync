@@ -6,7 +6,7 @@
 DarkSideSync is a Lua helper module for asynchroneous callbacks from
 other libraries. Lua is single-threaded by nature and hence working with
 multithreaded libraries is a complex matter. DarkSideSync aim is to make
-using asynchroneous libraries simple.
+using asynchroneous libraries (managing their own threadpools) simple.
 
 DarkSideSync takes away the complexity of messages queues,
 locking, synchronization, etc. because it implements them once and has a
