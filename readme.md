@@ -5,7 +5,7 @@ Usecase
 -------
 I wanted to create a lua binding for a library. The library uses callbacks to report on its async operations. The main issue however was that the library created its own threadpool and the callbacks could be executed on any one of those. And that, sooner or later, will wreak havoc with Lua's single threaded nature.
 
-So while Lua's main thread is doing its Lua thing, it needs to be notified that there is some other thread that tries to deliver some result it needs to handle. In my case the Lua thread would spend most of its time in a `select()` statement waiting for network IO.
+So while Lua's main thread is doing its Lua thing, it needs to be notified that there is some other thread that tries to deliver some result it needs to handle. 
 
 To support this DarkSideSync (DSS) was created, DSS has no use on its own, it will only support other libraries in handling async callbacks.
 
@@ -48,3 +48,10 @@ License is the same as Lua 5.1; [MIT license](http://opensource.org/licenses/MIT
 The name
 --------
 Lua = moon, dark side of the moon, externally managed threads that Lua cannot reach, you get it...
+
+Changes
+-------
+
+1.0  13-may-2013
+
+- Initial released version
