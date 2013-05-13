@@ -9,3 +9,7 @@
 /luaexit/Debug
 *.sdf
 /ipch
+/Release
+/darksidesync
+/luaexit
+/*.dll
