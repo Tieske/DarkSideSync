@@ -36,7 +36,7 @@ build = {
             "pthread"
           },
           defines = {
-            --"LUASOCKET_DEBUG"
+            "_GNU_SOURCE",
           }
         }
       }
@@ -55,7 +55,6 @@ build = {
             "wsock32"
           },
           defines = {
-            --"LUASOCKET_API=__declspec(dllexport)"
           }
         }
       }
@@ -64,5 +63,4 @@ build = {
   modules = {
     ["dss"] = "darksidesync/dss.lua",
   },
---  copy_directories = { "doc", "samples", "etc", "test" }
 }
