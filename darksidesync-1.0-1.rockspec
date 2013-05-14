@@ -1,7 +1,8 @@
 package = "darksidesync"
 version = "1.0-1"
 source = {
-   url = "to be filled",
+    url = "https://github.com/Tieske/DarkSideSync/archive/version_1.0.tar.gz",
+    dir = "DarkSideSync-version_1.0",
 }
 description = {
    summary = "Thread synchronization support for bindings to libraries with their own threadpools",
@@ -9,7 +10,7 @@ description = {
       DarkSideSync is a binding support library that makes it easy to create
       bindings to libraries that run their own background threads, like pupnp
       or OpenZwave for example. No global locks are required and no foreign
-      threads will be entering the Lua environment. Libraries using DarkSideSync
+      threads will be entering the Lua environment. Bindings using DarkSideSync
       will not require platform specific code for synchronization.
    ]],
    homepage = "https://github.com/Tieske/DarkSideSync",
@@ -56,7 +57,6 @@ build = {
           defines = {
             --"LUASOCKET_API=__declspec(dllexport)"
           }
-
         }
       }
     }
