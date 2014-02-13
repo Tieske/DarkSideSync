@@ -142,7 +142,10 @@ int delivery_decode(pQueueItem pqi, lua_State *L)
 		free(pqi); // No need to clear userdata, wasn't created yet in this case
 		return 1;					// Only count is returned
 	}
-
+    
+    // remove any leftovers, keep only the results on the stack
+    while (lua_gettop(L)>result) lua_remove(L, 1);
+    
 	lua_checkstack(L, 3);
 	if (pqi->pReturn != NULL)
 	{
