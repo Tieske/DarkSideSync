@@ -9,6 +9,7 @@
 // luaL_error. In case of an error the call will not return.
 void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 {
+	pDSS_api_1v0_t api_copy = NULL;
 	int errcode;
 
 	// Collect the table with the global DSS data from the register
@@ -36,14 +37,13 @@ void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 		// following call does not return
 		luaL_error(L, str);
 	}
-	DSSapi = (pDSS_api_1v0_t)lua_touserdata(L, -1);
+	api_copy = (pDSS_api_1v0_t)lua_touserdata(L, -1);
 	lua_pop(L,2); // pop apistruct and DSS global table
 
 	// Now register ourselves
-	DSSapi->reg(L, DSS_LibID, pCancel, &errcode);
+	api_copy->reg(L, DSS_LibID, pCancel, &errcode);
 	if (errcode != DSS_SUCCESS)
 	{
-		DSSapi = NULL;
 		// The error calls below will not return
 		switch (errcode) {
 			case DSS_ERR_NOT_STARTED: luaL_error(L, "DSS was not started, or already stopped again.");
@@ -53,7 +53,8 @@ void DSS_initialize(lua_State *L, DSS_cancel_1v0_t pCancel)
 			default: luaL_error(L, "An unknown error occured while initializing DSS.");
 		}
 	}
-
+	// Release our api; assumed atomical
+	DSSapi = api_copy;
 	return;
 }
 
@@ -97,16 +98,18 @@ int DSS_deliver(void* utilid, DSS_decoder_1v0_t pDecode, DSS_return_1v0_t pRetur
 // one param must be provided, lua_State has highest precedence
 void DSS_shutdown(lua_State *L, void* utilid)
 {
+	pDSS_api_1v0_t api_copy = DSSapi;
 	if (DSSapi != NULL) 
 	{
 		if ((L == NULL) && ( utilid == NULL))
 		{
 			// TODO: must fail hard here
 		}
-		// If we got a Lua state, go lookup our utilid
-		if (L != NULL) utilid = DSSapi->getutilid(L, DSS_LibID, NULL);
-		// Unregister
-		if (utilid != NULL) DSSapi->unreg(utilid);
+		// First remove ref. assumed to be atomical
 		DSSapi = NULL;
+		// If we got a Lua state, go lookup our utilid
+		if (L != NULL) utilid = api_copy->getutilid(L, DSS_LibID, NULL);
+		// Unregister
+		if (utilid != NULL) api_copy->unreg(utilid);
 	}
 }
